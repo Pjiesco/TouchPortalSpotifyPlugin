@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="Christophe Carvalho Vilas-Boas">
+    <meta name="generator" content="Jekyll v4.0.1">
+    <title>Touch Portal Spotify Plugin - Home</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="./resources/bootstrap.min.css" rel="stylesheet">
+
+    <meta name="theme-color" content="#1FBAED">
+
+
+    <style>
+      .bd-placeholder-img {
+        font-size: 1.125rem;
+        text-anchor: middle;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+
+      @media (min-width: 768px) {
+        .bd-placeholder-img-lg {
+          font-size: 3.5rem;
+        }
+      }
+
+
+    </style>
+    <!-- Custom styles for this template -->
+    <link href="./resources/cover.css" rel="stylesheet">
+</head>
+<body class="text-center">
+<div class="cover-container d-flex w-100 h-100 p-3 mx-auto flex-column">
+    <header class="masthead mb-auto">
+        <div class="inner">
+            <h3 class="masthead-brand">Touch Portal Spotify Plugin</h3>
+            <nav class="nav nav-masthead justify-content-center">
+                <a class="nav-link active" href="#">Home</a>
+                <a class="nav-link" href="./oauth2.html">Auth</a>
+                <a class="nav-link" href="./TouchPortalSpotifyPlugin.tpp" target="_blank">Download</a>
+                <a class="nav-link"
+                   href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=K5NSGWHK3RDP6&item_name=Touch+Portal+Spotify+Plugin&currency_code=EUR&source=url"
+                   target="_blank">Donate</a>
+            </nav>
+        </div>
+    </header>
+
+    <main role="main" class="inner cover">
+        <h1 class="cover-heading">Enjoy!</h1>
+        <p class="lead">
+            Please consider donating.
+        </p>
+    </main>
+
+    <footer class="mastfoot mt-auto">
+        <div class="inner">
+            <p>Created by <a href="https://github.com/ChristopheCVB" target="_blank">ChristopheCVB</a>.</p>
+        </div>
+    </footer>
+</div>
+
+<script>
+    hashes = window.location.hash.substr(1).split("&");
+    oauth2_access_token = "Failed";
+    for (index in hashes){
+        keyValue = hashes[index].split("=");
+        if (keyValue[0] == "access_token") {
+            oauth2_access_token = keyValue[1];
+            break;
+        }
+    }
+    document.getElementById("oauth2_access_token").value = oauth2_access_token;
+
+    function copyToClipboard() {
+        /* Get the text field */
+        var copyText = document.getElementById("oauth2_access_token");
+
+        /* Select the text field */
+        copyText.select();
+        copyText.setSelectionRange(0, 99999); /*For mobile devices*/
+
+        /* Copy the text inside the text field */
+        document.execCommand("copy");
+    }
+
+
+</script>
+
+</body>
+</html>
