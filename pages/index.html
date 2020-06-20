@@ -57,6 +57,14 @@
         <p class="lead">
             Please consider donating.
         </p>
+        <div id="update_available" style="display:none;">
+            <h2>
+                A new version of the Plugin is available.
+            </h2>
+            <p class="lead">
+                <a href="./TouchPortalSpotifyPlugin.tpp" target="_blank" class="btn btn-lg btn-secondary">Download</a>
+            </p>
+        </div>
     </main>
 
     <footer class="mastfoot mt-auto">
@@ -67,30 +75,9 @@
 </div>
 
 <script>
-    hashes = window.location.hash.substr(1).split("&");
-    oauth2_access_token = "Failed";
-    for (index in hashes){
-        keyValue = hashes[index].split("=");
-        if (keyValue[0] == "access_token") {
-            oauth2_access_token = keyValue[1];
-            break;
-        }
+    if (window.location.href.indexOf("update=true")>-1) {
+        document.getElementById("update_available").style.display = "block";
     }
-    document.getElementById("oauth2_access_token").value = oauth2_access_token;
-
-    function copyToClipboard() {
-        /* Get the text field */
-        var copyText = document.getElementById("oauth2_access_token");
-
-        /* Select the text field */
-        copyText.select();
-        copyText.setSelectionRange(0, 99999); /*For mobile devices*/
-
-        /* Copy the text inside the text field */
-        document.execCommand("copy");
-    }
-
-
 </script>
 
 </body>

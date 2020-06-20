@@ -13,11 +13,18 @@ import com.wrapper.spotify.exceptions.SpotifyWebApiException;
 import com.wrapper.spotify.model_objects.credentials.AuthorizationCodeCredentials;
 import org.apache.hc.core5.http.ParseException;
 
+import java.awt.*;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URL;
+import java.util.Properties;
 
 @Plugin(version = BuildConfig.VERSION_CODE, colorLight = "#999999", colorDark = "#333333")
 public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements TouchPortalPlugin.TouchPortalPluginListener {
+    public static final String PLUGIN_HOME_URL = "http://christophecvb.ovh/Touch%20Portal/Plugins/Spotify/";
+    public static final String PLUGIN_CONFIG_URL = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "plugin.config";
+    public static final String PLUGIN_UPDATE_URL = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "?update=true&from=" + BuildConfig.VERSION_CODE;
+    public static final String KEY_PLUGIN_VERSION = "plugin.version";
     public static final String KEY_SPOTIFY_CLIENT_ID = "spotify.clientid";
     public static final String KEY_SPOTIFY_CLIENT_SECRET = "spotify.clientsecret";
     public static final String KEY_SPOTIFY_OAUTH_CODE = "spotify.oauthcode";
@@ -55,6 +62,27 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN, oAuthAccessToken);
                 this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN, oAuthRefreshToken);
                 this.storeProperties();
+            }
+            else {
+                try {
+                    Properties cloudProperties = new Properties();
+                    cloudProperties.load(new URL(TouchPortalSpotifyPlugin.PLUGIN_CONFIG_URL).openStream());
+                    long lastPluginVersion = Long.parseLong(cloudProperties.getProperty(TouchPortalSpotifyPlugin.KEY_PLUGIN_VERSION));
+                    if (lastPluginVersion > BuildConfig.VERSION_CODE) {
+                        if (Desktop.isDesktopSupported()) {
+                            Desktop desktop = Desktop.getDesktop();
+                            try {
+                                desktop.browse(URI.create(TouchPortalSpotifyPlugin.PLUGIN_UPDATE_URL));
+                            }
+                            catch (IOException ioException) {
+                                ioException.printStackTrace();
+                            }
+                        }
+                    }
+                }
+                catch (NumberFormatException | IOException e) {
+                    e.printStackTrace();
+                }
             }
 
             this.spotifyAPI.setAccessToken(oAuthAccessToken);
