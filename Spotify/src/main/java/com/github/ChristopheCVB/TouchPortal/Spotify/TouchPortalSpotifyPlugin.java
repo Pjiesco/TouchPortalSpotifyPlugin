@@ -10,15 +10,21 @@ import com.github.ChristopheCVB.TouchPortal.TouchPortalPlugin;
 import com.github.ChristopheCVB.TouchPortal.model.TPInfo;
 import com.google.gson.JsonObject;
 import com.wrapper.spotify.SpotifyApi;
+import com.wrapper.spotify.enums.ModelObjectType;
 import com.wrapper.spotify.exceptions.SpotifyWebApiException;
 import com.wrapper.spotify.model_objects.credentials.AuthorizationCodeCredentials;
+import com.wrapper.spotify.model_objects.miscellaneous.CurrentlyPlaying;
 import com.wrapper.spotify.model_objects.miscellaneous.CurrentlyPlayingContext;
+import com.wrapper.spotify.model_objects.specification.Paging;
+import com.wrapper.spotify.model_objects.specification.PlaylistSimplified;
+import com.wrapper.spotify.model_objects.specification.Track;
 import org.apache.hc.core5.http.ParseException;
 
 import java.awt.*;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Properties;
 
 @Plugin(version = BuildConfig.VERSION_CODE, colorLight = "#23CF5F", colorDark = "#000000")
@@ -38,9 +44,12 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private static final String ACTION_DATA_CHOICE_TOGGLE = "Toggle";
     private static final String ACTION_DATA_CHOICE_MUTE = "Mute";
     private static final String ACTION_DATA_CHOICE_UNMUTE = "Unmute";
+    private static final String ACTION_DATA_CHOICE_LIKE = "Like";
+    private static final String ACTION_DATA_CHOICE_DISLIKE = "Dislike";
 
     private SpotifyApi spotifyAPI;
     private int lastKnownVolume;
+    private ArrayList<PlaylistSimplified> userPlaylists = new ArrayList<>();
 
     /**
      * Constructor
@@ -96,15 +105,43 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
             this.spotifyAPI.setAccessToken(oAuthAccessToken);
             this.spotifyAPI.setRefreshToken(oAuthRefreshToken);
-
-            this.initialiseLocalValues();
         }
         catch (IOException | ParseException | SpotifyWebApiException exception) {
             exception.printStackTrace();
         }
     }
 
-    private void initialiseLocalValues() {
+    private void initialize() {
+        this.initializeLastKnownVolume();
+
+        this.initializeCurrentUserPlaylists();
+    }
+
+    private void initializeCurrentUserPlaylists() {
+        try {
+            ArrayList<String> currentUserPlaylistsNames = new ArrayList<>();
+            Paging<PlaylistSimplified> paginatedUserPlaylists = this.spotifyAPI.getListOfCurrentUsersPlaylists().limit(50).build().execute();
+            for (PlaylistSimplified playlistSimplified : paginatedUserPlaylists.getItems()) {
+                currentUserPlaylistsNames.add(playlistSimplified.getName());
+                this.userPlaylists.add(playlistSimplified);
+            }
+            while (paginatedUserPlaylists.getNext() != null) {
+                paginatedUserPlaylists = this.spotifyAPI.getListOfCurrentUsersPlaylists().offset(currentUserPlaylistsNames.size()).limit(50).build().execute();
+                for (PlaylistSimplified playlistSimplified : paginatedUserPlaylists.getItems()) {
+                    currentUserPlaylistsNames.add(playlistSimplified.getName());
+                    this.userPlaylists.add(playlistSimplified);
+                }
+            }
+            this.sendChoiceUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.Actions.PlaylistStart.PlaylistNames.ID, currentUserPlaylistsNames.toArray(new String[0]));
+        }
+        catch (ParseException | IOException ignored) {}
+        catch (SpotifyWebApiException spotifyWebApiException) {
+            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
+            this.handleSpotifyWebApiException(spotifyWebApiException, this::initializeCurrentUserPlaylists);
+        }
+    }
+
+    private void initializeLastKnownVolume() {
         try {
             CurrentlyPlayingContext playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback().build().execute();
             if (playbackInfo != null) {
@@ -116,7 +153,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (SpotifyWebApiException spotifyWebApiException) {
             System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
-            this.handleSpotifyWebApiException(spotifyWebApiException, this::initialiseLocalValues);
+            this.handleSpotifyWebApiException(spotifyWebApiException, this::initializeLastKnownVolume);
         }
     }
 
@@ -131,6 +168,10 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 TouchPortalSpotifyPlugin spotifyPlugin = new TouchPortalSpotifyPlugin(args[1]);
 
                 boolean connectedPairedAndListening = spotifyPlugin.connectThenPairAndListen(spotifyPlugin);
+
+                if (connectedPairedAndListening) {
+                    spotifyPlugin.initialize();
+                }
             }
         }
     }
@@ -302,6 +343,53 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 }
                 catch (IOException | ParseException ignored) {}
                 break;
+        }
+    }
+
+    @Action(name = "Track Like/Dislike", prefix = "Spotify Track", description = "Like/Dislike a Track", format = "{$likeDislikeActions$} Track", categoryId = "BaseCategory")
+    private void trackLikeDislike(@Data(label = "Action", valueChoices = {TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_LIKE, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_DISLIKE}, defaultValue = TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_LIKE) String[] likeDislikeActions) {
+        try {
+            CurrentlyPlaying currentPlaying = this.spotifyAPI.getUsersCurrentlyPlayingTrack().build().execute();
+            Track currentTrack = null;
+            if (currentPlaying != null) {
+                if (currentPlaying.getItem().getType() == ModelObjectType.TRACK) {
+                    currentTrack = (Track) currentPlaying.getItem();
+                }
+            }
+
+            if (currentTrack != null) {
+                switch (likeDislikeActions[0]) {
+                    case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_LIKE:
+                        this.spotifyAPI.saveTracksForUser(currentTrack.getId()).build().execute();
+                        break;
+
+                    case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_DISLIKE:
+                        this.spotifyAPI.removeUsersSavedTracks(currentTrack.getId()).build().execute();
+                        break;
+                }
+            }
+        }
+        catch (ParseException | IOException ignored) {}
+        catch (SpotifyWebApiException spotifyWebApiException) {
+            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
+            this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.trackLikeDislike(likeDislikeActions));
+        }
+    }
+
+    @Action(name = "Playlist Start", prefix = "Spotify Playlist", description = "Start playing a specified Playlist", format = "Start Playlist {$playlistNames$}", categoryId = "BaseCategory")
+    private void playlistStart(@Data(label = "Playlist Name") String[] playlistNames) {
+        for (PlaylistSimplified playlistSimplified : this.userPlaylists) {
+            if (playlistNames[0].equals(playlistSimplified.getName())) {
+                try {
+                    this.spotifyAPI.startResumeUsersPlayback().context_uri(playlistSimplified.getUri()).build().execute();
+                }
+                catch (IOException | ParseException ignored) {}
+                catch (SpotifyWebApiException spotifyWebApiException) {
+                    System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
+                    this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playlistStart(playlistNames));
+                }
+                break;
+            }
         }
     }
 
