@@ -15,6 +15,7 @@ import com.wrapper.spotify.exceptions.SpotifyWebApiException;
 import com.wrapper.spotify.model_objects.credentials.AuthorizationCodeCredentials;
 import com.wrapper.spotify.model_objects.miscellaneous.CurrentlyPlaying;
 import com.wrapper.spotify.model_objects.miscellaneous.CurrentlyPlayingContext;
+import com.wrapper.spotify.model_objects.miscellaneous.Device;
 import com.wrapper.spotify.model_objects.specification.Paging;
 import com.wrapper.spotify.model_objects.specification.PlaylistSimplified;
 import com.wrapper.spotify.model_objects.specification.PlaylistTrack;
@@ -57,14 +58,14 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
     private SpotifyApi spotifyAPI;
     private int lastKnownVolume;
-    private ArrayList<PlaylistSimplified> userPlaylists = new ArrayList<>();
+    private final ArrayList<PlaylistSimplified> userPlaylists = new ArrayList<>();
 
     /**
      * Constructor
      *
      * @param touchPortalPluginFolder String - args[1]
      */
-    protected TouchPortalSpotifyPlugin(String touchPortalPluginFolder) {
+    private TouchPortalSpotifyPlugin(String touchPortalPluginFolder) {
         super(touchPortalPluginFolder, true);
 
         try {
@@ -214,8 +215,13 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     @Action(name = "Playback Start/Resume", prefix = "Spotify Player", description = "Playback Start/Resume", categoryId = "BaseCategory")
     private void playerStartResume() {
         try {
-            this.spotifyAPI.startResumeUsersPlayback().build().execute();
-            System.out.println("Started/Resumed");
+            Device[] availableDevices = this.spotifyAPI.getUsersAvailableDevices().build().execute();
+            for (Device availableDevice : availableDevices) {
+                if (availableDevice.getIs_active()) {
+                    this.spotifyAPI.startResumeUsersPlayback().device_id(availableDevice.getId()).build().execute();
+                    System.out.println("Started/Resumed");
+                }
+            }
         }
         catch (IOException | ParseException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
@@ -532,13 +538,13 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 runnable.run();
             }
             catch (IOException | SpotifyWebApiException | ParseException exception) {
-                // TODO: Ask new OAuth Code to user
                 this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN);
                 this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN);
                 try {
                     this.storeProperties();
                 }
                 catch (IOException ignored) {}
+                // TODO: Ask new OAuth Code to user
             }
         }
     }
