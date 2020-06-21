@@ -34,6 +34,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
@@ -41,6 +42,8 @@ import java.util.concurrent.Executors;
 
 /**
  * This is the class you need to extend in order to create a Touch Portal Plugin
+ *
+ * @see <a href="https://www.touch-portal.com/sdk/index.php">Documentation: Touch Portal SDK</a>
  */
 public abstract class TouchPortalPlugin {
     /**
@@ -116,7 +119,7 @@ public abstract class TouchPortalPlugin {
      * @param parallelizeActions      boolean - Parallelize Actions execution
      */
     protected TouchPortalPlugin(String touchPortalPluginFolder, boolean parallelizeActions) {
-        this.touchPortalPluginFolder = touchPortalPluginFolder.trim();
+        this.touchPortalPluginFolder = touchPortalPluginFolder;
         this.pluginClass = this.getClass();
         this.callbacksExecutor = Executors.newFixedThreadPool(parallelizeActions ? 5 : 1);
     }
@@ -139,11 +142,11 @@ public abstract class TouchPortalPlugin {
                     }
                     this.onMessage(socketMessage);
                 }
+                catch (JsonParseException ignored) {}
                 catch (IOException ioException) {
                     this.close(ioException);
                     break;
                 }
-                catch (JsonParseException ignored) {}
             }
         });
     }
@@ -174,36 +177,7 @@ public abstract class TouchPortalPlugin {
                                 boolean called = false;
                                 System.out.println("Message Received");
                                 if (messageType.equals(ReceivedMessageHelper.TYPE_ACTION)) {
-                                    String messageActionId = ReceivedMessageHelper.getActionId(jsonMessage);
-                                    if (messageActionId != null && !messageActionId.isEmpty()) {
-                                        for (Method method : this.pluginClass.getDeclaredMethods()) {
-                                            if (method.isAnnotationPresent(Action.class)) {
-                                                String methodActionId = ActionHelper.getActionId(this.pluginClass, method.getName());
-                                                if (messageActionId.equals(methodActionId)) {
-                                                    try {
-                                                        Parameter[] parameters = method.getParameters();
-                                                        Object[] arguments = new Object[parameters.length];
-                                                        for (int parameterIndex = 0; parameterIndex < parameters.length; parameterIndex++) {
-                                                            Parameter parameter = parameters[parameterIndex];
-                                                            if (parameter.isAnnotationPresent(Data.class)) {
-                                                                arguments[parameterIndex] = ReceivedMessageHelper.getTypedActionDataValue(jsonMessage, this.pluginClass, method, parameter);
-                                                            }
-                                                            if (arguments[parameterIndex] == null) {
-                                                                throw new ActionMethodDataParameterException(method, parameter);
-                                                            }
-                                                        }
-                                                        method.setAccessible(true);
-                                                        method.invoke(this, arguments);
-                                                        called = true;
-                                                    }
-                                                    catch (IllegalAccessException | InvocationTargetException | SecurityException | ActionMethodDataParameterException e) {
-                                                        e.printStackTrace();
-                                                    }
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
+                                    called = this.onActionReceived(jsonMessage);
                                 }
                                 if (!called) {
                                     if (this.touchPortalPluginListener != null) {
@@ -218,13 +192,45 @@ public abstract class TouchPortalPlugin {
         }
     }
 
+    private boolean onActionReceived(JsonObject jsonAction) {
+        boolean called = false;
+        String messageActionId = ReceivedMessageHelper.getActionId(jsonAction);
+        if (messageActionId != null && !messageActionId.isEmpty()) {
+            for (Method method : Arrays.stream(this.pluginClass.getDeclaredMethods()).filter(method -> method.isAnnotationPresent(Action.class)).toArray(Method[]::new)) {
+                String methodActionId = ActionHelper.getActionId(this.pluginClass, method);
+                if (messageActionId.equals(methodActionId)) {
+                    try {
+                        Parameter[] parameters = method.getParameters();
+                        Object[] arguments = new Object[parameters.length];
+                        for (int parameterIndex = 0; parameterIndex < parameters.length; parameterIndex++) {
+                            Parameter parameter = parameters[parameterIndex];
+                            if (parameter.isAnnotationPresent(Data.class)) {
+                                arguments[parameterIndex] = ReceivedMessageHelper.getTypedActionDataValue(jsonAction, this.pluginClass, method, parameter);
+                            }
+                            if (arguments[parameterIndex] == null) {
+                                throw new ActionMethodDataParameterException(method, parameter);
+                            }
+                        }
+                        method.setAccessible(true);
+                        method.invoke(this, arguments);
+                        called = true;
+                    }
+                    catch (IllegalAccessException | InvocationTargetException | SecurityException | ActionMethodDataParameterException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+                }
+            }
+        }
+        return called;
+    }
+
     /**
      * Send the Pair Message
      *
      * @return boolean Pairing Message sent
      */
     private boolean sendPair() {
-        // Send Pairing Message
         JsonObject pairingMessage = new JsonObject();
         pairingMessage.addProperty(SentMessageHelper.TYPE, SentMessageHelper.TYPE_PAIR);
         pairingMessage.addProperty(SentMessageHelper.ID, PluginHelper.getPluginId(this.pluginClass));
@@ -345,7 +351,7 @@ public abstract class TouchPortalPlugin {
     }
 
     /**
-     * Internal Send a Message to the Touch Portal Plugin System
+     * Internal - Send a Message to the Touch Portal Plugin System
      *
      * @param message {@link JsonObject}
      * @return boolean isMessageSent
@@ -518,15 +524,16 @@ public abstract class TouchPortalPlugin {
     }
 
     /**
-     * Internal Load the set Properties File
+     * Internal - Load the Properties File
      *
      * @throws IOException ioException
      */
     private void loadProperties() throws IOException {
         if (this.propertiesFile != null) {
-            FileInputStream fis = new FileInputStream(this.propertiesFile.getAbsolutePath());
+            FileInputStream fileInputStream = new FileInputStream(this.propertiesFile.getAbsolutePath());
             this.properties = new Properties();
-            this.properties.load(fis);
+            this.properties.load(fileInputStream);
+            fileInputStream.close();
         }
     }
 
@@ -595,7 +602,9 @@ public abstract class TouchPortalPlugin {
      */
     public void storeProperties() throws IOException {
         if (this.properties != null) {
-            this.properties.store(new FileOutputStream(this.propertiesFile), "");
+            FileOutputStream fileOutputStream = new FileOutputStream(this.propertiesFile);
+            this.properties.store(fileOutputStream, this.pluginClass.getSimpleName());
+            fileOutputStream.close();
         }
     }
 
