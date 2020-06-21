@@ -17,6 +17,7 @@ import com.wrapper.spotify.model_objects.miscellaneous.CurrentlyPlaying;
 import com.wrapper.spotify.model_objects.miscellaneous.CurrentlyPlayingContext;
 import com.wrapper.spotify.model_objects.specification.Paging;
 import com.wrapper.spotify.model_objects.specification.PlaylistSimplified;
+import com.wrapper.spotify.model_objects.specification.PlaylistTrack;
 import com.wrapper.spotify.model_objects.specification.Track;
 import org.apache.hc.core5.http.ParseException;
 
@@ -47,6 +48,12 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private static final String ACTION_DATA_CHOICE_UNMUTE = "Unmute";
     private static final String ACTION_DATA_CHOICE_LIKE = "Like";
     private static final String ACTION_DATA_CHOICE_DISLIKE = "Dislike";
+    private static final String ACTION_DATA_CHOICE_ENABLE = "Enable";
+    private static final String ACTION_DATA_CHOICE_DISABLE = "Disable";
+    private static final String ACTION_DATA_CHOICE_REPEAT_TRACK = "Repeat Track";
+    private static final String ACTION_DATA_CHOICE_REPEAT_CONTEXT = "Repeat All";
+    private static final String ACTION_DATA_CHOICE_REPEAT_OFF = "Off";
+    private static final String ACTION_DATA_CHOICE_REPEAT_CYCLE = "Cycle";
 
     private SpotifyApi spotifyAPI;
     private int lastKnownVolume;
@@ -126,7 +133,9 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 paginatedUserPlaylists = this.spotifyAPI.getListOfCurrentUsersPlaylists().offset(this.userPlaylists.size()).limit(50).build().execute();
                 this.userPlaylists.addAll(Arrays.asList(paginatedUserPlaylists.getItems()));
             }
-            this.sendChoiceUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.Actions.PlaylistStart.PlaylistNames.ID, this.userPlaylists.stream().map(PlaylistSimplified::getName).toArray(String[]::new));
+            String[] playlistNames = this.userPlaylists.stream().map(PlaylistSimplified::getName).toArray(String[]::new);
+            this.sendChoiceUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.Actions.PlaylistStart.PlaylistNames.ID, playlistNames);
+            this.sendChoiceUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.Actions.SaveCurrentTrackToPlaylist.PlaylistNames.ID, playlistNames);
         }
         catch (ParseException | IOException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
@@ -367,18 +376,146 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
     @Action(name = "Playlist Start", prefix = "Spotify Playlist", description = "Start playing a specified Playlist", format = "Start Playlist {$playlistNames$}", categoryId = "BaseCategory")
     private void playlistStart(@Data(label = "Playlist Name") String[] playlistNames) {
-        for (PlaylistSimplified playlistSimplified : this.userPlaylists) {
-            if (playlistNames[0].equals(playlistSimplified.getName())) {
-                try {
-                    this.spotifyAPI.startResumeUsersPlayback().context_uri(playlistSimplified.getUri()).build().execute();
-                }
-                catch (IOException | ParseException ignored) {}
-                catch (SpotifyWebApiException spotifyWebApiException) {
-                    System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
-                    this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playlistStart(playlistNames));
-                }
-                break;
+        PlaylistSimplified selectedPlaylistSimplified = this.getUserPlaylistFromName(playlistNames[0]);
+        if (selectedPlaylistSimplified != null) {
+            try {
+                this.spotifyAPI.startResumeUsersPlayback().context_uri(selectedPlaylistSimplified.getUri()).build().execute();
             }
+            catch (IOException | ParseException ignored) {}
+            catch (SpotifyWebApiException spotifyWebApiException) {
+                System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
+                this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playlistStart(playlistNames));
+            }
+        }
+    }
+
+    @Action(name = "Player Shuffle Mode", prefix = "Spotify Player", description = "Player Shuffle Mode", format = "{$shuffleModeActions$} Shuffle Mode", categoryId = "BaseCategory")
+    private void playerShuffleMode(@Data(label = "Action", valueChoices = {TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_ENABLE, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_DISABLE, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_TOGGLE}, defaultValue = TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_TOGGLE) String[] shuffleModeActions) {
+        try {
+            switch (shuffleModeActions[0]) {
+                case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_ENABLE:
+                    this.spotifyAPI.toggleShuffleForUsersPlayback(true).build().execute();
+                    break;
+
+                case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_DISABLE:
+                    this.spotifyAPI.toggleShuffleForUsersPlayback(false).build().execute();
+                    break;
+
+                case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_TOGGLE:
+                    CurrentlyPlayingContext playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback().build().execute();
+                    if (playbackInfo != null) {
+                        this.spotifyAPI.toggleShuffleForUsersPlayback(!playbackInfo.getShuffle_state()).build().execute();
+                    }
+                    break;
+            }
+        }
+        catch (IOException | ParseException ignored) {}
+        catch (SpotifyWebApiException spotifyWebApiException) {
+            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
+            this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playerShuffleMode(shuffleModeActions));
+        }
+    }
+
+    @Action(name = "Player Repeat Mode", prefix = "Spotify Player", description = "Player Repeat Mode", format = "Set Repeat Mode to {$repeatModeActions$}", categoryId = "BaseCategory")
+    private void playerRepeatMode(@Data(label = "Action", valueChoices = {TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_TRACK, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CONTEXT, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_OFF, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CYCLE, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_TOGGLE}, defaultValue = TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CYCLE) String[] repeatModeActions) {
+        try {
+            CurrentlyPlayingContext playbackInfo;
+            switch (repeatModeActions[0]) {
+                case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_TRACK:
+                    this.spotifyAPI.setRepeatModeOnUsersPlayback("track").build().execute();
+                    break;
+
+                case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CONTEXT:
+                    this.spotifyAPI.setRepeatModeOnUsersPlayback("context").build().execute();
+                    break;
+
+                case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_OFF:
+                    this.spotifyAPI.setRepeatModeOnUsersPlayback("off").build().execute();
+                    break;
+
+                case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CYCLE:
+                    playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback().build().execute();
+                    if (playbackInfo != null) {
+                        String nextRepeatMode;
+                        switch (playbackInfo.getRepeat_state()) {
+                            case "context":
+                                nextRepeatMode = "track";
+                                break;
+
+                            case "track":
+                                nextRepeatMode = "off";
+                                break;
+
+                            default:
+                            case "off":
+                                nextRepeatMode = "context";
+                                break;
+                        }
+                        this.spotifyAPI.setRepeatModeOnUsersPlayback(nextRepeatMode).build().execute();
+                    }
+                    break;
+
+                case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_TOGGLE:
+                    playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback().build().execute();
+                    if (playbackInfo != null) {
+                        String repeatMode;
+                        if (playbackInfo.getRepeat_state().equals("track")) {
+                            repeatMode = "off";
+                        }
+                        else {
+                            repeatMode = "track";
+                        }
+                        this.spotifyAPI.setRepeatModeOnUsersPlayback(repeatMode).build().execute();
+                    }
+                    break;
+            }
+        }
+        catch (IOException | ParseException ignored) {}
+        catch (SpotifyWebApiException spotifyWebApiException) {
+            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
+            this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playerRepeatMode(repeatModeActions));
+        }
+    }
+
+    @Action(name = "Add Track to Playlist", prefix = "Spotify Playlist", description = "Add Current Track to Playlist", format = "Add Current Track to Playlist {$playlistNames$}", categoryId = "BaseCategory")
+    private void saveCurrentTrackToPlaylist(@Data(label = "Playlist Name") String[] playlistNames) {
+        try {
+            PlaylistSimplified selectedPlaylistSimplified = this.getUserPlaylistFromName(playlistNames[0]);
+            if (selectedPlaylistSimplified != null) {
+                CurrentlyPlaying currentPlaying = this.spotifyAPI.getUsersCurrentlyPlayingTrack().build().execute();
+                Track currentTrack = null;
+                if (currentPlaying != null) {
+                    if (currentPlaying.getItem().getType() == ModelObjectType.TRACK) {
+                        currentTrack = (Track) currentPlaying.getItem();
+                    }
+                }
+
+                if (currentTrack != null) {
+                    Paging<PlaylistTrack> paginatedPlaylistTracks = this.spotifyAPI.getPlaylistsItems(selectedPlaylistSimplified.getId()).limit(100).build().execute();
+                    ArrayList<PlaylistTrack> playlistTracks = new ArrayList<>(Arrays.asList(paginatedPlaylistTracks.getItems()));
+                    while (paginatedPlaylistTracks.getNext() != null) {
+                        paginatedPlaylistTracks = this.spotifyAPI.getPlaylistsItems(selectedPlaylistSimplified.getId()).offset(this.userPlaylists.size()).limit(100).build().execute();
+                        playlistTracks.addAll(Arrays.asList(paginatedPlaylistTracks.getItems()));
+                    }
+                    Track finalCurrentTrack = currentTrack;
+                    boolean alreadyPresent = playlistTracks.stream().anyMatch(playlistTrack -> {
+                        if (playlistTrack.getTrack().getType().equals(ModelObjectType.TRACK)) {
+                            Track playlistTrackTrack = (Track) playlistTrack.getTrack();
+                            return playlistTrackTrack.getId().equals(finalCurrentTrack.getId());
+                        }
+                        return false;
+                    });
+
+                    if (!alreadyPresent) {
+                        this.spotifyAPI.addItemsToPlaylist(selectedPlaylistSimplified.getId(), new String[]{currentTrack.getUri()}).build().execute();
+                    }
+                }
+            }
+        }
+        catch (IOException | ParseException ignored) {}
+        catch (SpotifyWebApiException spotifyWebApiException) {
+            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
+            this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.saveCurrentTrackToPlaylist(playlistNames));
         }
     }
 
@@ -404,6 +541,17 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 catch (IOException ignored) {}
             }
         }
+    }
+
+    private PlaylistSimplified getUserPlaylistFromName(String playlistName) {
+        PlaylistSimplified playlistSimplified = null;
+        for (PlaylistSimplified playlistSimplifiedItem : this.userPlaylists) {
+            if (playlistName.equals(playlistSimplifiedItem.getName())) {
+                playlistSimplified = playlistSimplifiedItem;
+                break;
+            }
+        }
+        return playlistSimplified;
     }
 
     @Override
