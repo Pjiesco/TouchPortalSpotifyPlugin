@@ -21,7 +21,7 @@ import java.nio.file.Paths;
 import java.util.Properties;
 
 public class SpotifyOAuthTokenApplication extends Application {
-    private static final String[] SCOPES = new String[]{"streaming", "user-read-playback-state", "user-modify-playback-state", "user-library-modify", "playlist-modify-private", "playlist-modify-public", "playlist-read-collaborative", "playlist-read-private"};
+    private static final String[] SCOPES = new String[]{"streaming", "user-read-playback-state", "user-modify-playback-state", "user-library-modify", "user-library-read", "playlist-modify-private", "playlist-modify-public", "playlist-read-collaborative", "playlist-read-private"};
     public static final String REDIRECT_URI = "http://christophecvb.ovh/Touch%20Portal/Plugins/Spotify/oauth2.html";
 
     private static URI getAuthorizationURI(SpotifyApi spotifyApi) {
