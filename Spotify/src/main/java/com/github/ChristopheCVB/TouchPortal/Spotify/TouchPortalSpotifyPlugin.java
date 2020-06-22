@@ -28,6 +28,7 @@ import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.Properties;
 
 @Plugin(version = BuildConfig.VERSION_CODE, colorLight = "#23CF5F", colorDark = "#000000")
@@ -121,6 +122,25 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
     }
 
+    private static void showSpotifyOAuth(SpotifyApi spotifyApi, String propertiesFilePath) {
+        SpotifyOAuthTokenApplication.initiate(spotifyApi, propertiesFilePath);
+    }
+
+    public static void main(String[] args) {
+        if (args != null && args.length == 2) {
+            if (PluginHelper.COMMAND_START.equals(args[0])) {
+                // Initialize the Plugin
+                TouchPortalSpotifyPlugin spotifyPlugin = new TouchPortalSpotifyPlugin(args[1]);
+
+                boolean connectedPairedAndListening = spotifyPlugin.connectThenPairAndListen(spotifyPlugin);
+
+                if (connectedPairedAndListening) {
+                    spotifyPlugin.initialize();
+                }
+            }
+        }
+    }
+
     private void initialize() {
         this.initializeLastKnownVolume();
         this.initializeCurrentUserPlaylists();
@@ -161,25 +181,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
     }
 
-    private static void showSpotifyOAuth(SpotifyApi spotifyApi, String propertiesFilePath) {
-        SpotifyOAuthTokenApplication.initiate(spotifyApi, propertiesFilePath);
-    }
-
-    public static void main(String[] args) {
-        if (args != null && args.length == 2) {
-            if (PluginHelper.COMMAND_START.equals(args[0])) {
-                // Initialize the Plugin
-                TouchPortalSpotifyPlugin spotifyPlugin = new TouchPortalSpotifyPlugin(args[1]);
-
-                boolean connectedPairedAndListening = spotifyPlugin.connectThenPairAndListen(spotifyPlugin);
-
-                if (connectedPairedAndListening) {
-                    spotifyPlugin.initialize();
-                }
-            }
-        }
-    }
-
     @Action(name = "Playback Play/Pause", prefix = "Spotify Player", description = "Playback Play/Pause", format = "{$playPauseActions$} Playback", categoryId = "BaseCategory")
     private void playerPlayPause(@Data(label = "Action", valueChoices = {TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_PLAY, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_PAUSE, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_TOGGLE}, defaultValue = TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_TOGGLE) String[] playPauseActions) {
         switch (playPauseActions[0]) {
@@ -215,12 +216,10 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     @Action(name = "Playback Start/Resume", prefix = "Spotify Player", description = "Playback Start/Resume", categoryId = "BaseCategory")
     private void playerStartResume() {
         try {
-            Device[] availableDevices = this.spotifyAPI.getUsersAvailableDevices().build().execute();
-            for (Device availableDevice : availableDevices) {
-                if (availableDevice.getIs_active()) {
-                    this.spotifyAPI.startResumeUsersPlayback().device_id(availableDevice.getId()).build().execute();
-                    System.out.println("Started/Resumed");
-                }
+            Device activeDevice = this.getActiveDevice();
+            if (activeDevice != null) {
+                this.spotifyAPI.startResumeUsersPlayback().device_id(activeDevice.getId()).build().execute();
+                System.out.println("Started/Resumed");
             }
         }
         catch (IOException | ParseException ignored) {}
@@ -560,6 +559,15 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         return playlistSimplified;
     }
 
+    private Device getActiveDevice() throws ParseException, SpotifyWebApiException, IOException {
+        Device activeDevice = null;
+        Optional<Device> optionalActiveDevice = Arrays.stream(this.spotifyAPI.getUsersAvailableDevices().build().execute()).filter(Device::getIs_active).findFirst();
+        if (optionalActiveDevice.isPresent()) {
+            activeDevice = optionalActiveDevice.get();
+        }
+        return activeDevice;
+    }
+
     @Override
     public void onDisconnect(Exception exception) {
         System.exit(0);
@@ -570,7 +578,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     }
 
     @Override
-    public void onInfo(TPInfo tpInfo) {}
+    public void onInfo(TPInfo tpInfo) {
+    }
 
     private enum Categories {
         @Category(name = "Spotify", imagePath = "images/icon-24.png")
