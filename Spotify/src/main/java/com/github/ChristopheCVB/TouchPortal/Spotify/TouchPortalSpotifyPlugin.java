@@ -14,11 +14,14 @@ import com.wrapper.spotify.model_objects.credentials.AuthorizationCodeCredential
 import com.wrapper.spotify.model_objects.miscellaneous.CurrentlyPlaying;
 import com.wrapper.spotify.model_objects.miscellaneous.CurrentlyPlayingContext;
 import com.wrapper.spotify.model_objects.miscellaneous.Device;
+import com.wrapper.spotify.model_objects.specification.Image;
 import com.wrapper.spotify.model_objects.specification.*;
 import org.apache.hc.core5.http.ParseException;
 
 import java.awt.*;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
 import java.util.*;
@@ -56,6 +59,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private SpotifyApi spotifyAPI;
     private int lastKnownPositiveVolume = 100;
     private ArrayList<PlaylistSimplified> userPlaylists = new ArrayList<>();
+    private HashMap<String, String> trackAlbumImages = new HashMap<>();
 
     private ScheduledExecutorService scheduledExecutorService;
 
@@ -65,6 +69,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private String currentArtistName;
     @State(defaultValue = "", desc = "Spotify Current Track Name")
     private String currentTrackName;
+    @State(defaultValue = "", desc = "Spotify Current Track Image")
+    private String currentTrackImage;
     @State(defaultValue = "", desc = "Spotify Current Playlist Name")
     private String currentPlaylistName;
 
@@ -159,11 +165,17 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     }
 
     private void updateStatesAndChoices() {
-        this.updateCurrentStates();
+        this.updateStates();
+        this.updateChoices();
         this.updateCurrentUserPlaylists();
     }
 
-    private void updateCurrentStates() {
+    private void updateChoices() {
+        this.updateAvailableDevices();
+        this.updateCurrentUserPlaylists();
+    }
+
+    private void updateStates() {
         this.updateCurrentVolume();
         try {
             CurrentlyPlayingContext playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback().build().execute();
@@ -173,16 +185,21 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                     currentTrack = (Track) playbackInfo.getItem();
                 }
 
-                this.updateCurrentArtistName(currentTrack);
-                this.updateCurrentTrackName(currentTrack);
+                this.updateCurrentTrack(currentTrack);
                 this.updateCurrentPlaylistName(playbackInfo);
             }
         }
         catch (ParseException | IOException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
             System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
-            this.handleSpotifyWebApiException(spotifyWebApiException, this::updateCurrentStates);
+            this.handleSpotifyWebApiException(spotifyWebApiException, this::updateStates);
         }
+    }
+
+    private void updateCurrentTrack(Track currentTrack) {
+        this.updateCurrentArtistName(currentTrack);
+        this.updateCurrentTrackName(currentTrack);
+        this.updateCurrentTrackImage(currentTrack);
     }
 
     private void updateCurrentArtistName(Track currentTrack) {
@@ -191,30 +208,93 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
             Collections.addAll(currentTrackArtists, currentTrack.getArtists());
             this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentArtistName.ID, String.join(", ", currentTrackArtists.stream().map(ArtistSimplified::getName).toArray(String[]::new)));
         }
+        else {
+            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentArtistName.ID, "");
+        }
     }
 
     private void updateCurrentTrackName(Track currentTrack) {
         if (currentTrack != null) {
             this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackName.ID, currentTrack.getName());
         }
+        else {
+            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackName.ID, "");
+        }
+    }
+
+    private void updateCurrentTrackImage(Track currentTrack) {
+        if (currentTrack != null) {
+            Image albumImage = currentTrack.getAlbum().getImages()[0];
+            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackImage.ID, this.imageUrlToBase64(albumImage.getUrl()));
+        }
+        else {
+            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackImage.ID, "");
+        }
+    }
+
+    private String imageUrlToBase64(String imageUrl) {
+        String base64 = null;
+        if (this.trackAlbumImages.containsKey(imageUrl)) {
+            base64 = this.trackAlbumImages.get(imageUrl);
+        }
+        else {
+            InputStream inputStream = null;
+            ByteArrayOutputStream byteArrayOutputStream = null;
+            try {
+                URL imageURL = new URL(imageUrl);
+                inputStream = imageURL.openStream();
+                byteArrayOutputStream = new ByteArrayOutputStream();
+                byte[] buffer = new byte[1024];
+                int read;
+                while ((read = inputStream.read(buffer, 0, buffer.length)) != -1) {
+                    byteArrayOutputStream.write(buffer, 0, read);
+                }
+                byteArrayOutputStream.flush();
+                base64 = Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
+                this.trackAlbumImages.put(imageUrl, base64);
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+            finally {
+                if (inputStream != null) {
+                    try {
+                        inputStream.close();
+                    }
+                    catch (IOException ioException) {
+                        ioException.printStackTrace();
+                    }
+                }
+                if (byteArrayOutputStream != null) {
+                    try {
+                        byteArrayOutputStream.close();
+                    }
+                    catch (IOException ioException) {
+                        ioException.printStackTrace();
+                    }
+                }
+            }
+        }
+        return base64;
     }
 
     private void updateCurrentPlaylistName(CurrentlyPlayingContext playbackInfo) {
         try {
-            if (playbackInfo != null) {
+            if (playbackInfo != null && playbackInfo.getContext() != null) {
                 switch (playbackInfo.getContext().getType()) {
                     case PLAYLIST:
-                        // FIXME: Current Playlist
-                        Paging<PlaylistSimplified> playlistSimplifiedPaging = this.spotifyAPI.searchPlaylists(playbackInfo.getContext().getUri()).limit(1).build().execute();
-                        if (playlistSimplifiedPaging.getItems().length > 0) {
-                            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistName.ID, playlistSimplifiedPaging.getItems()[0].getName());
-                        }
+                        String[] playlistUriParts = playbackInfo.getContext().getUri().split(":");
+                        Playlist playlist = this.spotifyAPI.getPlaylist(playlistUriParts[playlistUriParts.length - 1]).build().execute();
+                        this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistName.ID, playlist.getName());
                         break;
 
                     default:
                         this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistName.ID, "");
                         break;
                 }
+            }
+            else {
+                this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistName.ID, "");
             }
         }
         catch (ParseException | IOException ignored) {}
@@ -240,6 +320,18 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         catch (SpotifyWebApiException spotifyWebApiException) {
             System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, this::updateCurrentVolume);
+        }
+    }
+
+    private void updateAvailableDevices() {
+        try {
+            Device[] availableDevices = this.spotifyAPI.getUsersAvailableDevices().build().execute();
+            this.sendChoiceUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.Actions.PlayerStartPlayingThroughDevice.Devices.ID, Arrays.stream(availableDevices).map(Device::getName).toArray(String[]::new));
+        }
+        catch (ParseException | IOException ignored) {}
+        catch (SpotifyWebApiException spotifyWebApiException) {
+            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
+            this.handleSpotifyWebApiException(spotifyWebApiException, this::updateCurrentUserPlaylists);
         }
     }
 
@@ -296,6 +388,22 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
     }
 
+    @Action(name = "Player Start through Available Device", description = "Start Playing with the selected Available Device", format = "Start Playing on {$devices$}", categoryId = "BaseCategory")
+    private void playerStartPlayingThroughDevice(@Data(label = "Device") String[] devices) {
+        try {
+            Device[] availableDevices = this.spotifyAPI.getUsersAvailableDevices().build().execute();
+            Optional<Device> optionalDevice = Arrays.stream(availableDevices).filter(device -> devices[0].equals(device.getName())).findFirst();
+            if (optionalDevice.isPresent()) {
+                this.spotifyAPI.startResumeUsersPlayback().device_id(optionalDevice.get().getId()).build().execute();
+            }
+        }
+        catch (IOException | ParseException ignored) {}
+        catch (SpotifyWebApiException spotifyWebApiException) {
+            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
+            this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playerStartPlayingThroughDevice(devices));
+        }
+    }
+
     @Action(name = "Playback Start/Resume", prefix = "Spotify Player", description = "Playback Start/Resume", categoryId = "BaseCategory")
     private void playerStartResume() {
         try {
@@ -303,6 +411,9 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
             if (activeDevice != null) {
                 this.spotifyAPI.startResumeUsersPlayback().device_id(activeDevice.getId()).build().execute();
                 System.out.println("Started/Resumed");
+            }
+            else {
+                System.out.println("No Active Device Found");
             }
         }
         catch (IOException | ParseException ignored) {}
@@ -315,8 +426,14 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     @Action(name = "Playback Pause", prefix = "Spotify Player", description = "Playback Pause", categoryId = "BaseCategory")
     private void playerPause() {
         try {
-            this.spotifyAPI.pauseUsersPlayback().build().execute();
-            System.out.println("Paused");
+            Device activeDevice = this.getActiveDevice();
+            if (activeDevice != null) {
+                this.spotifyAPI.pauseUsersPlayback().device_id(activeDevice.getId()).build().execute();
+                System.out.println("Paused");
+            }
+            else {
+                System.out.println("No Active Device Found");
+            }
         }
         catch (IOException | ParseException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
@@ -613,6 +730,21 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         catch (SpotifyWebApiException spotifyWebApiException) {
             System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.saveCurrentTrackToPlaylist(playlistNames));
+        }
+    }
+
+    @Action(name = "Log Available Devices", description = "Log Available Devices", categoryId = "BaseCategory")
+    private void logAvailableDevices() {
+        try {
+            Device[] availableDevices = this.spotifyAPI.getUsersAvailableDevices().build().execute();
+            for (Device availableDevice : availableDevices) {
+                System.out.println(availableDevice.getName() + " is Active " + availableDevice.getIs_active() + " Type " + availableDevice.getType());
+            }
+        }
+        catch (IOException | ParseException ignored) {}
+        catch (SpotifyWebApiException spotifyWebApiException) {
+            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
+            this.handleSpotifyWebApiException(spotifyWebApiException, this::logAvailableDevices);
         }
     }
 
