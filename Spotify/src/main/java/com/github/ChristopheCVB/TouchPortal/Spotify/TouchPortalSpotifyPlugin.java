@@ -364,6 +364,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private void updateCurrentPlaylistName(CurrentlyPlayingContext playbackInfo) {
         try {
             if (playbackInfo != null && playbackInfo.getContext() != null) {
+                //noinspection SwitchStatementWithTooFewBranches
                 switch (playbackInfo.getContext().getType()) {
                     case PLAYLIST:
                         String[] playlistUriParts = playbackInfo.getContext().getUri().split(":");
@@ -398,13 +399,83 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
     private void updateAvailableDevices() {
         try {
+            ArrayList<StoredDevice> storedDevices = this.getStoredDevices();
             Device[] availableDevices = this.spotifyAPI.getUsersAvailableDevices().build().execute();
-            this.sendChoiceUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.Actions.PlayerStartPlayingThroughDevice.Devices.ID, Arrays.stream(availableDevices).map(Device::getName).toArray(String[]::new));
+            for (Device availableDevice : availableDevices) {
+                StoredDevice discoveredDevice = new StoredDevice(availableDevice);
+                storedDevices.remove(discoveredDevice);
+                storedDevices.add(discoveredDevice);
+            }
+            this.setStoredDevices(storedDevices);
+            this.sendChoiceUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.Actions.PlayerStartPlayingThroughDevice.Devices.ID, storedDevices.stream().map(storedDevice -> storedDevice.name).toArray(String[]::new));
         }
         catch (ParseException | IOException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
             System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, this::updateCurrentUserPlaylists);
+        }
+    }
+
+    private ArrayList<StoredDevice> getStoredDevices() {
+        ArrayList<StoredDevice> storedDevices = new ArrayList<>();
+
+        String rawDiscoveredDevices = this.getProperty("plugin.discoveredDevices");
+        if (rawDiscoveredDevices != null && !rawDiscoveredDevices.isEmpty()) {
+            for (String rawDevice : rawDiscoveredDevices.split("::")) {
+                StoredDevice storedDevice = new StoredDevice(rawDevice);
+                storedDevices.add(storedDevice);
+            }
+        }
+
+        return storedDevices;
+    }
+
+    private void setStoredDevices(ArrayList<StoredDevice> storedDevices) {
+        ArrayList<StoredDevice> alreadyStoredDevices = this.getStoredDevices();
+        for (StoredDevice storedDevice : storedDevices) {
+            if (!alreadyStoredDevices.contains(storedDevice)) {
+                alreadyStoredDevices.add(storedDevice);
+            }
+        }
+        String rawDiscoveredDevices = String.join("::", alreadyStoredDevices.stream().map(StoredDevice::toString).toArray(String[]::new));
+        this.setProperty("plugin.discoveredDevices", rawDiscoveredDevices);
+        try {
+            this.storeProperties();
+        }
+        catch (IOException ignored) {}
+    }
+
+    private static class StoredDevice {
+        public String name;
+        public String id;
+
+        public StoredDevice(Device device) {
+            this.name = device.getName();
+            this.id = device.getId();
+        }
+
+        public StoredDevice(String rawDevice) {
+            String[] split = rawDevice.split(":SD:");
+            this.name = split[0];
+            this.id = split[1];
+        }
+
+        @Override
+        public String toString() {
+            return this.name + ":SD:" + this.id;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            StoredDevice that = (StoredDevice) o;
+            return name.equals(that.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(id);
         }
     }
 
@@ -465,13 +536,15 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     @Action(name = "Playback Start through Device", description = "Start Playing with the selected Available Device", format = "Start Playing on {$devices$}", categoryId = "BaseCategory")
     private void playerStartPlayingThroughDevice(@Data(label = "Device") String[] devices) {
         try {
-            Device[] availableDevices = this.spotifyAPI.getUsersAvailableDevices().build().execute();
-            Optional<Device> optionalDevice = Arrays.stream(availableDevices).filter(device -> devices[0].equals(device.getName())).findFirst();
-            if (optionalDevice.isPresent()) {
-                this.spotifyAPI.startResumeUsersPlayback().device_id(optionalDevice.get().getId()).build().execute();
-                System.out.println("Spotify: Playback Start through Device: " + devices[0]);
-                Thread.sleep(250);
-                this.updateStates();
+            for (StoredDevice storedDevice : this.getStoredDevices()) {
+                if (devices[0].equals(storedDevice.name)) {
+                    System.out.println(storedDevice.toString());
+                    this.spotifyAPI.startResumeUsersPlayback().device_id(storedDevice.id).build().execute();
+                    System.out.println("Spotify: Playback Start through Device: " + devices[0]);
+                    Thread.sleep(250);
+                    this.updateStates();
+                    break;
+                }
             }
         }
         catch (IOException | ParseException | InterruptedException ignored) {}
