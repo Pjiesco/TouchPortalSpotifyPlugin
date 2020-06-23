@@ -1,6 +1,7 @@
 package com.github.ChristopheCVB.TouchPortal.Spotify;
 
 import com.github.ChristopheCVB.TouchPortal.Annotations.Category;
+import com.github.ChristopheCVB.TouchPortal.Annotations.Event;
 import com.github.ChristopheCVB.TouchPortal.Annotations.*;
 import com.github.ChristopheCVB.TouchPortal.Helpers.PluginHelper;
 import com.github.ChristopheCVB.TouchPortal.Spotify.oauth.SpotifyOAuthTokenApplication;
@@ -51,6 +52,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private static final String ACTION_DATA_CHOICE_DISLIKE = "Dislike";
     private static final String ACTION_DATA_CHOICE_ENABLE = "Enable";
     private static final String ACTION_DATA_CHOICE_DISABLE = "Disable";
+    private static final String ACTION_DATA_CHOICE_ENABLED = "Enabled";
+    private static final String ACTION_DATA_CHOICE_DISABLED = "Disabled";
     private static final String ACTION_DATA_CHOICE_REPEAT_TRACK = "Repeat Track";
     private static final String ACTION_DATA_CHOICE_REPEAT_CONTEXT = "Repeat All";
     private static final String ACTION_DATA_CHOICE_REPEAT_OFF = "Off";
@@ -73,6 +76,12 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private String currentTrackImage;
     @State(defaultValue = "", desc = "Spotify Current Playlist Name")
     private String currentPlaylistName;
+    @Event(format = "When Repeat Mode changes to $val", name = "When Repeat Mode changes")
+    @State(defaultValue = TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_OFF, desc = "Spotify Current Repeat Mode", valueChoices = {TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_TRACK, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CONTEXT, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_OFF})
+    private String[] currentRepeatMode;
+    @Event(format = "When Shuffle Mode changes to $val", name = "When Shuffle Mode changes")
+    @State(defaultValue = TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_DISABLED, desc = "Spotify Current Shuffle Mode", valueChoices = {TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_ENABLED, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_DISABLED})
+    private String[] currentShuffleMode;
 
     /**
      * Constructor
@@ -167,7 +176,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private void updateStatesAndChoices() {
         this.updateStates();
         this.updateChoices();
-        this.updateCurrentUserPlaylists();
     }
 
     private void updateChoices() {
@@ -176,18 +184,53 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     }
 
     private void updateStates() {
-        this.updateCurrentVolume();
         try {
+            this.updateCurrentVolume();
             CurrentlyPlayingContext playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback().build().execute();
             if (playbackInfo != null) {
                 this.updateCurrentTrackFromPlaybackInfo(playbackInfo);
                 this.updateCurrentPlaylistName(playbackInfo);
+                this.updateCurrentRepeatMode(playbackInfo);
+                this.updateCurrentShuffleMode(playbackInfo);
             }
         }
         catch (ParseException | IOException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
             System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, this::updateStates);
+        }
+    }
+
+    private void updateCurrentRepeatMode(CurrentlyPlayingContext playbackInfo) {
+        if (playbackInfo != null) {
+            String displayableRepeatMode = this.getDisplayableRepeatMode(playbackInfo.getRepeat_state());
+            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentRepeatMode.ID, displayableRepeatMode);
+        }
+    }
+
+    private String getDisplayableRepeatMode(String repeatMode) {
+        String displayableRepeatMode;
+        switch (repeatMode) {
+            case "context":
+                displayableRepeatMode = TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CONTEXT;
+                break;
+
+            case "track":
+                displayableRepeatMode = TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_TRACK;
+                break;
+
+            default:
+            case "off":
+                displayableRepeatMode = TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_OFF;
+                break;
+        }
+        return displayableRepeatMode;
+    }
+
+    private void updateCurrentShuffleMode(CurrentlyPlayingContext playbackInfo) {
+        if (playbackInfo != null) {
+            String displayableShuffleMode = playbackInfo.getShuffle_state() ? TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_ENABLED : TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_DISABLED;
+            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentShuffleMode.ID, displayableShuffleMode);
         }
     }
 
@@ -323,9 +366,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentVolume.ID, activeDevice.getVolume_percent() + "");
             }
         }
-        catch (IOException | ParseException exception) {
-            exception.printStackTrace();
-        }
+        catch (ParseException | IOException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
             System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, this::updateCurrentVolume);
@@ -405,10 +446,11 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
             if (optionalDevice.isPresent()) {
                 this.spotifyAPI.startResumeUsersPlayback().device_id(optionalDevice.get().getId()).build().execute();
                 System.out.println("Spotify: Playback Start through Device: " + devices[0]);
+                Thread.sleep(250);
                 this.updateStates();
             }
         }
-        catch (IOException | ParseException ignored) {}
+        catch (IOException | ParseException | InterruptedException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
             System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playerStartPlayingThroughDevice(devices));
@@ -422,13 +464,14 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
             if (activeDevice != null) {
                 this.spotifyAPI.startResumeUsersPlayback().device_id(activeDevice.getId()).build().execute();
                 System.out.println("Spotify: Playback Start/Resume");
+                Thread.sleep(250);
                 this.updateStates();
             }
             else {
                 System.out.println("Spotify: No Active Device Found");
             }
         }
-        catch (IOException | ParseException ignored) {}
+        catch (IOException | ParseException | InterruptedException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
             System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, this::playerStartResume);
@@ -459,9 +502,10 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         try {
             this.spotifyAPI.skipUsersPlaybackToNextTrack().build().execute();
             System.out.println("Spotify: Playback Next Track");
+            Thread.sleep(250);
             this.updateStates();
         }
-        catch (IOException | ParseException ignored) {}
+        catch (IOException | ParseException | InterruptedException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
             System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, this::playerNextTrack);
@@ -473,9 +517,10 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         try {
             this.spotifyAPI.skipUsersPlaybackToPreviousTrack().build().execute();
             System.out.println("Spotify: Playback Previous Track");
+            Thread.sleep(250);
             this.updateStates();
         }
-        catch (IOException | ParseException ignored) {}
+        catch (IOException | ParseException | InterruptedException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
             System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, this::playerPreviousTrack);
@@ -490,10 +535,10 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 volume = Math.max(Math.min(volume, 100), 0);
                 this.spotifyAPI.setVolumeForUsersPlayback(volume).device_id(activeDevice.getId()).build().execute();
                 System.out.println("Spotify: Playback Volume Set: " + volume);
-                this.updateCurrentVolume();
                 if (volume > 0) {
                     this.lastKnownPositiveVolume = volume;
                 }
+                this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentVolume.ID, volume + "");
             }
             else {
                 System.out.println("Spotify: No Active Device Found");
@@ -628,24 +673,31 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     @Action(name = "Player Shuffle Mode", prefix = "Spotify Player", description = "Player Shuffle Mode", format = "{$shuffleModeActions$} Shuffle Mode", categoryId = "BaseCategory")
     private void playerShuffleMode(@Data(label = "Action", valueChoices = {TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_ENABLE, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_DISABLE, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_TOGGLE}, defaultValue = TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_TOGGLE) String[] shuffleModeActions) {
         try {
+            Boolean shuffleMode = null;
+            CurrentlyPlayingContext playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback().build().execute();
             switch (shuffleModeActions[0]) {
                 case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_ENABLE:
+                    shuffleMode = true;
                     this.spotifyAPI.toggleShuffleForUsersPlayback(true).build().execute();
-                    System.out.println("Spotify: Player Shuffle Mode: " + true);
+                    System.out.println("Spotify: Player Shuffle Mode: " + shuffleMode);
                     break;
 
                 case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_DISABLE:
+                    shuffleMode = false;
                     this.spotifyAPI.toggleShuffleForUsersPlayback(false).build().execute();
-                    System.out.println("Spotify: Player Shuffle Mode: " + false);
+                    System.out.println("Spotify: Player Shuffle Mode: " + shuffleMode);
                     break;
 
                 case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_TOGGLE:
-                    CurrentlyPlayingContext playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback().build().execute();
                     if (playbackInfo != null) {
-                        this.spotifyAPI.toggleShuffleForUsersPlayback(!playbackInfo.getShuffle_state()).build().execute();
-                        System.out.println("Spotify: Player Shuffle Mode: " + !playbackInfo.getShuffle_state());
+                        shuffleMode = !playbackInfo.getShuffle_state();
+                        this.spotifyAPI.toggleShuffleForUsersPlayback(shuffleMode).build().execute();
+                        System.out.println("Spotify: Player Shuffle Mode: " + shuffleMode);
                     }
                     break;
+            }
+            if (shuffleMode != null) {
+                this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentShuffleMode.ID, shuffleMode ? TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_ENABLED : TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_DISABLED);
             }
         }
         catch (IOException | ParseException ignored) {}
@@ -658,61 +710,62 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     @Action(name = "Player Repeat Mode", prefix = "Spotify Player", description = "Player Repeat Mode", format = "Set Repeat Mode to {$repeatModeActions$}", categoryId = "BaseCategory")
     private void playerRepeatMode(@Data(label = "Action", valueChoices = {TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_TRACK, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CONTEXT, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_OFF, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CYCLE, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_TOGGLE}, defaultValue = TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CYCLE) String[] repeatModeActions) {
         try {
-            CurrentlyPlayingContext playbackInfo;
+            String newRepeatMode = null;
+            CurrentlyPlayingContext playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback().build().execute();
             switch (repeatModeActions[0]) {
                 case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_TRACK:
-                    this.spotifyAPI.setRepeatModeOnUsersPlayback("track").build().execute();
-                    System.out.println("Spotify: Player Repeat Mode: track");
+                    newRepeatMode = "track";
+                    this.spotifyAPI.setRepeatModeOnUsersPlayback(newRepeatMode).build().execute();
+                    System.out.println("Spotify: Player Repeat Mode: " + newRepeatMode);
                     break;
 
                 case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CONTEXT:
-                    this.spotifyAPI.setRepeatModeOnUsersPlayback("context").build().execute();
-                    System.out.println("Spotify: Player Repeat Mode: context");
+                    newRepeatMode = "context";
+                    this.spotifyAPI.setRepeatModeOnUsersPlayback(newRepeatMode).build().execute();
+                    System.out.println("Spotify: Player Repeat Mode: " + newRepeatMode);
                     break;
 
                 case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_OFF:
-                    this.spotifyAPI.setRepeatModeOnUsersPlayback("off").build().execute();
-                    System.out.println("Spotify: Player Repeat Mode: off");
+                    newRepeatMode = "off";
+                    this.spotifyAPI.setRepeatModeOnUsersPlayback(newRepeatMode).build().execute();
+                    System.out.println("Spotify: Player Repeat Mode: " + newRepeatMode);
                     break;
 
                 case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CYCLE:
-                    playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback().build().execute();
                     if (playbackInfo != null) {
-                        String nextRepeatMode;
                         switch (playbackInfo.getRepeat_state()) {
                             case "context":
-                                nextRepeatMode = "track";
+                                newRepeatMode = "track";
                                 break;
 
                             case "track":
-                                nextRepeatMode = "off";
+                                newRepeatMode = "off";
                                 break;
 
                             default:
                             case "off":
-                                nextRepeatMode = "context";
+                                newRepeatMode = "context";
                                 break;
                         }
-                        this.spotifyAPI.setRepeatModeOnUsersPlayback(nextRepeatMode).build().execute();
-                        System.out.println("Spotify: Player Repeat Mode: " + nextRepeatMode);
+                        this.spotifyAPI.setRepeatModeOnUsersPlayback(newRepeatMode).build().execute();
+                        System.out.println("Spotify: Player Repeat Mode: " + newRepeatMode);
                     }
                     break;
 
                 case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_TOGGLE:
-                    playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback().build().execute();
                     if (playbackInfo != null) {
-                        String toggleRepeatMode;
                         if (playbackInfo.getRepeat_state().equals("track")) {
-                            toggleRepeatMode = "off";
+                            newRepeatMode = "off";
                         }
                         else {
-                            toggleRepeatMode = "track";
+                            newRepeatMode = "track";
                         }
-                        this.spotifyAPI.setRepeatModeOnUsersPlayback(toggleRepeatMode).build().execute();
-                        System.out.println("Spotify: Player Repeat Mode: " + toggleRepeatMode);
+                        this.spotifyAPI.setRepeatModeOnUsersPlayback(newRepeatMode).build().execute();
+                        System.out.println("Spotify: Player Repeat Mode: " + newRepeatMode);
                     }
                     break;
             }
+            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentRepeatMode.ID, this.getDisplayableRepeatMode(newRepeatMode));
         }
         catch (IOException | ParseException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
