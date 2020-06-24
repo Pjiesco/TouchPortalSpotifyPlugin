@@ -17,12 +17,14 @@ import com.wrapper.spotify.model_objects.miscellaneous.CurrentlyPlayingContext;
 import com.wrapper.spotify.model_objects.miscellaneous.Device;
 import com.wrapper.spotify.model_objects.specification.Image;
 import com.wrapper.spotify.model_objects.specification.*;
+import javafx.embed.swing.JFXPanel;
+import javafx.embed.swing.SwingFXUtils;
 import org.apache.hc.core5.http.ParseException;
 
+import javax.imageio.ImageIO;
 import java.awt.*;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
 import java.util.*;
@@ -42,6 +44,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     public static final String KEY_SPOTIFY_OAUTH_ACCESS_TOKEN = "spotify.oauthaccestoken";
     public static final String KEY_SPOTIFY_OAUTH_REFRESH_TOKEN = "spotify.oauthrefreshtoken";
     public static final String KEY_STATES_UPDATE_INTERVAL = "states.updateInterval";
+    public static final String KEY_ALBUM_IMAGE_SIZE = "track.album.image.size";
 
     private static final String ACTION_DATA_CHOICE_PLAY = "Play";
     private static final String ACTION_DATA_CHOICE_PAUSE = "Pause";
@@ -321,40 +324,24 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
             base64 = this.trackAlbumImages.get(imageUrl);
         }
         else {
-            InputStream inputStream = null;
             ByteArrayOutputStream byteArrayOutputStream = null;
             try {
-                URL imageURL = new URL(imageUrl);
-                inputStream = imageURL.openStream();
+                JFXPanel jfxPanel = new JFXPanel();
+                double imageSize = Double.parseDouble(this.getProperty(TouchPortalSpotifyPlugin.KEY_ALBUM_IMAGE_SIZE, "256"));
+                javafx.scene.image.Image image = new javafx.scene.image.Image(imageUrl, imageSize, imageSize, true, true, false);
                 byteArrayOutputStream = new ByteArrayOutputStream();
-                byte[] buffer = new byte[1024];
-                int read;
-                while ((read = inputStream.read(buffer, 0, buffer.length)) != -1) {
-                    byteArrayOutputStream.write(buffer, 0, read);
-                }
-                byteArrayOutputStream.flush();
+
+                ImageIO.write(SwingFXUtils.fromFXImage(image, null), "png", byteArrayOutputStream);
                 base64 = Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
                 this.trackAlbumImages.put(imageUrl, base64);
             }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
+            catch (Exception ignored) {}
             finally {
-                if (inputStream != null) {
-                    try {
-                        inputStream.close();
-                    }
-                    catch (IOException ioException) {
-                        ioException.printStackTrace();
-                    }
-                }
                 if (byteArrayOutputStream != null) {
                     try {
                         byteArrayOutputStream.close();
                     }
-                    catch (IOException ioException) {
-                        ioException.printStackTrace();
-                    }
+                    catch (IOException ignored) {}
                 }
             }
         }
