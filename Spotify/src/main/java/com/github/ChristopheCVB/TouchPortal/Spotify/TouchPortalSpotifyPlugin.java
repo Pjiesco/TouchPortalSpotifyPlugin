@@ -112,8 +112,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private TouchPortalSpotifyPlugin(String touchPortalPluginFolder) {
         super(touchPortalPluginFolder, true);
 
-        try {
-            this.loadProperties("plugin.config");
+        if (this.loadProperties("plugin.config")) {
 
             String clientId = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_CLIENT_ID);
             String clientSecret = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_CLIENT_SECRET);
@@ -123,50 +122,60 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
             String oAuthAccessToken = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN);
             String oAuthRefreshToken = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN);
             if (oAuthAccessToken == null || oAuthAccessToken.isEmpty()) {
-                TouchPortalSpotifyPlugin.showSpotifyOAuth(this.spotifyAPI, this.getPropertiesFile().getAbsolutePath());
-
-                this.reloadProperties();
-                String oAuthCode = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_CODE);
-                AuthorizationCodeCredentials credentials = this.spotifyAPI.authorizationCode(oAuthCode).build().execute();
-                this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_CODE);
-                oAuthAccessToken = credentials.getAccessToken();
-                oAuthRefreshToken = credentials.getRefreshToken();
-                this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN, oAuthAccessToken);
-                this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN, oAuthRefreshToken);
-                this.storeProperties();
+                this.startOAuthProcess();
             }
             else {
-                try {
-                    Properties cloudProperties = new Properties();
-                    cloudProperties.load(new URL(TouchPortalSpotifyPlugin.PLUGIN_CONFIG_URL).openStream());
-                    long lastPluginVersion = Long.parseLong(cloudProperties.getProperty(TouchPortalSpotifyPlugin.KEY_PLUGIN_VERSION));
-                    if (lastPluginVersion > BuildConfig.VERSION_CODE) {
-                        if (Desktop.isDesktopSupported()) {
-                            Desktop desktop = Desktop.getDesktop();
-                            try {
-                                desktop.browse(URI.create(TouchPortalSpotifyPlugin.PLUGIN_UPDATE_URL));
-                            }
-                            catch (IOException ioException) {
-                                ioException.printStackTrace();
-                            }
-                        }
-                    }
-                }
-                catch (NumberFormatException | IOException e) {
-                    e.printStackTrace();
-                }
+                this.checkForUpdate();
+                this.spotifyAPI.setAccessToken(oAuthAccessToken);
+                this.spotifyAPI.setRefreshToken(oAuthRefreshToken);
             }
-
-            this.spotifyAPI.setAccessToken(oAuthAccessToken);
-            this.spotifyAPI.setRefreshToken(oAuthRefreshToken);
         }
-        catch (IOException | ParseException | SpotifyWebApiException exception) {
-            exception.printStackTrace();
+        else {
+            System.out.println("Could not read plugin.config");
         }
     }
 
-    private static void showSpotifyOAuth(SpotifyApi spotifyApi, String propertiesFilePath) {
-        SpotifyOAuthTokenApplication.initiate(spotifyApi, propertiesFilePath);
+    private void startOAuthProcess() {
+        try {
+            SpotifyOAuthTokenApplication.initiate(this.spotifyAPI, this.getPropertiesFile().getAbsolutePath());
+
+            this.reloadProperties();
+            String oAuthCode = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_CODE);
+            AuthorizationCodeCredentials credentials = this.spotifyAPI.authorizationCode(oAuthCode).build().execute();
+            this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_CODE);
+            String oAuthAccessToken = credentials.getAccessToken();
+            String oAuthRefreshToken = credentials.getRefreshToken();
+            this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN, oAuthAccessToken);
+            this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN, oAuthRefreshToken);
+            this.storeProperties();
+            this.spotifyAPI.setAccessToken(oAuthAccessToken);
+            this.spotifyAPI.setRefreshToken(oAuthRefreshToken);
+        }
+        catch (SpotifyWebApiException | IOException | ParseException exception) {
+            System.out.println("OAuth Process Failed: " + exception.getMessage());
+        }
+    }
+
+    private void checkForUpdate() {
+        try {
+            Properties cloudProperties = new Properties();
+            cloudProperties.load(new URL(TouchPortalSpotifyPlugin.PLUGIN_CONFIG_URL).openStream());
+            long lastPluginVersion = Long.parseLong(cloudProperties.getProperty(TouchPortalSpotifyPlugin.KEY_PLUGIN_VERSION));
+            if (lastPluginVersion > BuildConfig.VERSION_CODE) {
+                if (Desktop.isDesktopSupported()) {
+                    Desktop desktop = Desktop.getDesktop();
+                    try {
+                        desktop.browse(URI.create(TouchPortalSpotifyPlugin.PLUGIN_UPDATE_URL));
+                    }
+                    catch (IOException ioException) {
+                        ioException.printStackTrace();
+                    }
+                }
+            }
+        }
+        catch (NumberFormatException | IOException exception) {
+            System.out.println("Check Update failed: " + exception.getMessage());
+        }
     }
 
     public static void main(String[] args) {
@@ -470,10 +479,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         String rawDiscoveredDevices = String.join("::", alreadyStoredDevices.stream().map(StoredDevice::toString).toArray(String[]::new));
         this.setProperty("plugin.discoveredDevices", rawDiscoveredDevices);
-        try {
-            this.storeProperties();
-        }
-        catch (IOException ignored) {}
+        this.storeProperties();
     }
 
     private static class StoredDevice {
@@ -968,12 +974,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
             catch (IOException | SpotifyWebApiException | ParseException exception) {
                 this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN);
                 this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN);
-                try {
-                    this.storeProperties();
-                }
-                catch (IOException ignored) {
-                    // TODO: Ask new OAuth Code to user
-                }
+                this.storeProperties();
+                this.startOAuthProcess();
             }
         }
     }
