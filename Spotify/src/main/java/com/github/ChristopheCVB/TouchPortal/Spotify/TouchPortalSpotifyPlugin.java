@@ -65,6 +65,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private static final String STATE_VALUE_DISLIKED = "Disliked";
     private static final String STATE_VALUE_PLAYING = "Playing";
     private static final String STATE_VALUE_PAUSED = "Paused";
+    private static final String STATE_VALUE_MUTED = "Muted";
+    private static final String STATE_VALUE_UNMUTED = "Unmuted";
 
     private SpotifyApi spotifyAPI;
 
@@ -98,6 +100,9 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     @Event(format = "When Current Playback status changes to $val", name = "When Current Playback status changes")
     @State(defaultValue = TouchPortalSpotifyPlugin.STATE_VALUE_PAUSED, desc = "Spotify Current Playback Status", valueChoices = {TouchPortalSpotifyPlugin.STATE_VALUE_PLAYING, TouchPortalSpotifyPlugin.STATE_VALUE_PAUSED})
     private String[] currentPlaybackStatus;
+    @Event(format = "When Current Mute status changes to $val", name = "When Current Mute status changes")
+    @State(defaultValue = TouchPortalSpotifyPlugin.STATE_VALUE_MUTED, desc = "Spotify Current Mute Status", valueChoices = {TouchPortalSpotifyPlugin.STATE_VALUE_MUTED, TouchPortalSpotifyPlugin.STATE_VALUE_UNMUTED})
+    private String[] currentMuteStatus;
 
     /**
      * Constructor
@@ -202,9 +207,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private void updateStates() {
         try {
             CurrentlyPlayingContext playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback().build().execute();
-            if (playbackInfo != null) {
-                this.updateCurrentVolume(playbackInfo.getDevice());
-            }
+            this.updateCurrentVolumeAndMuteStatus(playbackInfo);
             this.updateCurrentTrackFromPlaybackInfo(playbackInfo);
             this.updateCurrentPlaylistName(playbackInfo);
             this.updateCurrentPlaylistImage(playbackInfo);
@@ -414,12 +417,14 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
     }
 
-    private void updateCurrentVolume(Device activeDevice) {
-        if (activeDevice != null) {
+    private void updateCurrentVolumeAndMuteStatus(CurrentlyPlayingContext playbackInfo) {
+        if (playbackInfo != null && playbackInfo.getDevice() != null) {
+            Device activeDevice = playbackInfo.getDevice();
             if (activeDevice.getVolume_percent() > 0) {
                 this.lastKnownPositiveVolume = activeDevice.getVolume_percent();
             }
             this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentVolume.ID, activeDevice.getVolume_percent() + "");
+            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentMuteStatus.ID, activeDevice.getVolume_percent() > 0 ? TouchPortalSpotifyPlugin.STATE_VALUE_UNMUTED : TouchPortalSpotifyPlugin.STATE_VALUE_MUTED);
         }
     }
 
@@ -662,6 +667,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                     this.lastKnownPositiveVolume = volume;
                 }
                 this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentVolume.ID, volume + "");
+                this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentMuteStatus.ID, volume > 0 ? TouchPortalSpotifyPlugin.STATE_VALUE_UNMUTED : TouchPortalSpotifyPlugin.STATE_VALUE_MUTED);
             }
             else {
                 System.out.println("Spotify: No Active Device Found");
