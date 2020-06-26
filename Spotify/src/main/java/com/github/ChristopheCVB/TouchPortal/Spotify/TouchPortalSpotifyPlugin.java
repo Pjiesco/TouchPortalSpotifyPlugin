@@ -405,7 +405,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 }
             }
             else {
-                System.out.println("playbackInfo == null");
                 this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistImage.ID, "", true);
             }
         }
