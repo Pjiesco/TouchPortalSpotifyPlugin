@@ -413,7 +413,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (ParseException | IOException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.updateCurrentPlaylistName(playbackInfo));
+            this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.updateCurrentPlaylistImage(playbackInfo));
         }
     }
 
@@ -443,7 +443,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         catch (ParseException | IOException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
             System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
-            this.handleSpotifyWebApiException(spotifyWebApiException, this::updateCurrentUserPlaylists);
+            this.handleSpotifyWebApiException(spotifyWebApiException, this::updateAvailableDevices);
         }
     }
 
@@ -971,8 +971,9 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 try {
                     this.storeProperties();
                 }
-                catch (IOException ignored) {}
-                // TODO: Ask new OAuth Code to user
+                catch (IOException ignored) {
+                    // TODO: Ask new OAuth Code to user
+                }
             }
         }
     }
