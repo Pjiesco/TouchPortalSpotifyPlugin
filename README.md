@@ -12,7 +12,7 @@ Go to [releases](https://github.com/ChristopheCVB/TouchPortalSpotifyPlugin/relea
 
 ## Download Plugin
 
-Head to Plugin [Home Page](http://christophecvb.ovh/Touch%20Portal/Plugins/Spotify/)
+Head to Plugin [Home Page](http://christophecvb.com/Touch%20Portal/Plugins/Spotify/)
 
 ## ROADMAP
 
