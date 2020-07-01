@@ -71,7 +71,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
     private int lastKnownPositiveVolume = 100;
     private final ArrayList<PlaylistSimplified> userPlaylists = new ArrayList<>();
-    private final HashMap<String, String> trackAlbumImages = new HashMap<>();
+    private final HashMap<String, String> base64Images = new HashMap<>();
 
     private ScheduledExecutorService scheduledExecutorService;
 
@@ -331,8 +331,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
     private String imageUrlToBase64(String imageUrl) {
         String base64 = null;
-        if (this.trackAlbumImages.containsKey(imageUrl)) {
-            base64 = this.trackAlbumImages.get(imageUrl);
+        if (this.base64Images.containsKey(imageUrl)) {
+            base64 = this.base64Images.get(imageUrl);
         }
         else {
             ByteArrayOutputStream byteArrayOutputStream = null;
@@ -344,7 +344,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
                 ImageIO.write(SwingFXUtils.fromFXImage(image, null), "png", byteArrayOutputStream);
                 base64 = Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
-                this.trackAlbumImages.put(imageUrl, base64);
+                this.base64Images.put(imageUrl, base64);
             }
             catch (Exception ignored) {}
             finally {
