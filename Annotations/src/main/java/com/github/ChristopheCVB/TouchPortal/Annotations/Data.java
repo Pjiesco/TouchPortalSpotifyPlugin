@@ -77,4 +77,40 @@ public @interface Data {
      * @return String[] valueChoices
      */
     String[] valueChoices() default {};
+
+    /**
+     * Data extensions
+     * <p>
+     * Used if the parameter type is File
+     * </p>
+     * <p>
+     * Supported extensions (i.e. `{"*.txt"}`)
+     * </p>
+     * <p>
+     * Default is an empty Array, hence supporting all extensions
+     * </p>
+     *
+     * @return String[] extensions
+     */
+    String[] extensions() default {};
+
+    /**
+     * Data isDirectory
+     * <p>
+     * Used if the parameter type is File
+     * </p>
+     *
+     * @return boolean isDirectory
+     */
+    boolean isDirectory() default false;
+
+    /**
+     * Data isColor
+     * <p>
+     * Used if the parameter type is String
+     * </p>
+     *
+     * @return boolean isColor
+     */
+    boolean isColor() default false;
 }

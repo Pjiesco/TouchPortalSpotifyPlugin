@@ -142,7 +142,7 @@ public class TouchPortalPluginAnnotationProcessor extends AbstractProcessor {
         jsonConfiguration.addProperty(PluginHelper.CONFIGURATION_COLOR_DARK, plugin.colorDark());
         jsonConfiguration.addProperty(PluginHelper.CONFIGURATION_COLOR_LIGHT, plugin.colorLight());
         jsonPlugin.add(PluginHelper.CONFIGURATION, jsonConfiguration);
-        jsonPlugin.addProperty(PluginHelper.PLUGIN_START_COMMAND, "java -jar " + PluginHelper.TP_PLUGIN_FOLDER + pluginElement.getSimpleName() + "\\" + pluginElement.getSimpleName() + ".jar " + PluginHelper.COMMAND_START + " \" " + PluginHelper.TP_PLUGIN_FOLDER + " \"");
+        jsonPlugin.addProperty(PluginHelper.PLUGIN_START_COMMAND, "java -jar \"" + PluginHelper.TP_PLUGIN_FOLDER + pluginElement.getSimpleName() + "\\" + pluginElement.getSimpleName() + ".jar\" " + PluginHelper.COMMAND_START + " \" " + PluginHelper.TP_PLUGIN_FOLDER + " \"");
 
         JsonArray jsonCategories = new JsonArray();
         Set<? extends Element> categoryElements = roundEnv.getElementsAnnotatedWith(Category.class);
@@ -372,6 +372,7 @@ public class TouchPortalPluginAnnotationProcessor extends AbstractProcessor {
         String desiredTPType = GenericHelper.getTouchPortalType(className, dataElement);
         jsonData.addProperty(DataHelper.TYPE, desiredTPType);
         jsonData.addProperty(DataHelper.LABEL, DataHelper.getActionDataLabel(dataElement, data));
+        // Default Value
         switch (desiredTPType) {
             case GenericHelper.TP_TYPE_NUMBER:
                 double defaultValue = 0;
@@ -390,12 +391,44 @@ public class TouchPortalPluginAnnotationProcessor extends AbstractProcessor {
                 jsonData.addProperty(DataHelper.DEFAULT, data.defaultValue());
                 break;
         }
-        if (desiredTPType.equals(DataHelper.TYPE_CHOICE)) {
-            JsonArray dataValueChoices = new JsonArray();
-            for (String valueChoice : data.valueChoices()) {
-                dataValueChoices.add(new JsonPrimitive(valueChoice));
-            }
-            jsonData.add(DataHelper.VALUE_CHOICES, dataValueChoices);
+        // Specific properties
+        switch (desiredTPType) {
+            case GenericHelper.TP_TYPE_CHOICE:
+                JsonArray dataValueChoices = new JsonArray();
+                for (String valueChoice : data.valueChoices()) {
+                    dataValueChoices.add(valueChoice);
+                }
+                jsonData.add(DataHelper.VALUE_CHOICES, dataValueChoices);
+                break;
+
+            case GenericHelper.TP_TYPE_FILE:
+                if (data.isDirectory()) {
+                    jsonData.addProperty(DataHelper.TYPE, GenericHelper.TP_TYPE_DIRECTORY);
+                }
+                else {
+                    JsonArray jsonExtensions = new JsonArray();
+                    for (String extension : data.extensions()) {
+                        if (extension.matches(DataHelper.EXTENSION_FORMAT)) {
+                            jsonExtensions.add(extension);
+                        }
+                        else {
+                            this.messager.printMessage(Diagnostic.Kind.ERROR, "Action Data Extension: [" + extension + "] format is not valid");
+                        }
+                    }
+                    jsonData.add(DataHelper.EXTENSIONS, jsonExtensions);
+                }
+                break;
+
+            case GenericHelper.TP_TYPE_TEXT:
+                if (data.isColor()) {
+                    jsonData.addProperty(DataHelper.TYPE, GenericHelper.TP_TYPE_COLOR);
+                    if (!data.defaultValue().isEmpty()) {
+                        if (!data.defaultValue().matches(DataHelper.COLOR_FORMAT)) {
+                            this.messager.printMessage(Diagnostic.Kind.ERROR, "Action Data Color Default value: [" + data.defaultValue() + "] format is not valid");
+                        }
+                    }
+                }
+                break;
         }
         if (!action.format().isEmpty()) {
             // Replace wildcards

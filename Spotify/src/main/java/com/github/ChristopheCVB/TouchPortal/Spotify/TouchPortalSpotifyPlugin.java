@@ -26,7 +26,6 @@ import java.awt.*;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URL;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -157,24 +156,16 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     }
 
     private void checkForUpdate() {
-        try {
-            Properties cloudProperties = new Properties();
-            cloudProperties.load(new URL(TouchPortalSpotifyPlugin.PLUGIN_CONFIG_URL).openStream());
-            long lastPluginVersion = Long.parseLong(cloudProperties.getProperty(TouchPortalSpotifyPlugin.KEY_PLUGIN_VERSION));
-            if (lastPluginVersion > BuildConfig.VERSION_CODE) {
-                if (Desktop.isDesktopSupported()) {
-                    Desktop desktop = Desktop.getDesktop();
-                    try {
-                        desktop.browse(URI.create(TouchPortalSpotifyPlugin.PLUGIN_UPDATE_URL));
-                    }
-                    catch (IOException ioException) {
-                        ioException.printStackTrace();
-                    }
+        if (this.isUpdateAvailable(TouchPortalSpotifyPlugin.PLUGIN_CONFIG_URL, BuildConfig.VERSION_CODE)) {
+            if (Desktop.isDesktopSupported()) {
+                Desktop desktop = Desktop.getDesktop();
+                try {
+                    desktop.browse(URI.create(TouchPortalSpotifyPlugin.PLUGIN_UPDATE_URL));
+                }
+                catch (IOException ioException) {
+                    ioException.printStackTrace();
                 }
             }
-        }
-        catch (NumberFormatException | IOException exception) {
-            System.out.println("Check Update failed: " + exception.getMessage());
         }
     }
 
