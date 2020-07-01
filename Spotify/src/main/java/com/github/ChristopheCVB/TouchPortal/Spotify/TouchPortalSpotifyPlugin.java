@@ -7,6 +7,7 @@ import com.github.ChristopheCVB.TouchPortal.Helpers.PluginHelper;
 import com.github.ChristopheCVB.TouchPortal.Spotify.oauth.SpotifyOAuthTokenApplication;
 import com.github.ChristopheCVB.TouchPortal.TouchPortalPlugin;
 import com.github.ChristopheCVB.TouchPortal.model.TPInfo;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.wrapper.spotify.SpotifyApi;
 import com.wrapper.spotify.enums.ModelObjectType;
@@ -947,6 +948,44 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         catch (SpotifyWebApiException spotifyWebApiException) {
             System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.saveCurrentTrackToPlaylist(playlistNames));
+        }
+    }
+
+    @Action(name = "Remove Current Track from Current Playlist", prefix = "Spotify Playlist", description = "Remove Current Track from Current Playlist", categoryId = "BaseCategory")
+    private void removeCurrentTrackFromCurrentPlaylist() {
+        try {
+            CurrentlyPlaying currentPlaying = this.spotifyAPI.getUsersCurrentlyPlayingTrack().build().execute();
+
+            Track currentTrack = null;
+            if (currentPlaying != null) {
+                if (currentPlaying.getItem().getType() == ModelObjectType.TRACK) {
+                    currentTrack = (Track) currentPlaying.getItem();
+                }
+            }
+            Playlist currentPlaylist = null;
+            if (currentPlaying != null) {
+                if (currentPlaying.getContext().getType() == ModelObjectType.PLAYLIST) {
+                    String[] playlistParts = currentPlaying.getContext().getUri().split(":");
+                    currentPlaylist = this.spotifyAPI.getPlaylist(playlistParts[playlistParts.length - 1]).build().execute();
+                }
+            }
+
+            if (currentTrack != null && currentPlaylist != null) {
+                JsonArray tracksToRemove = new JsonArray();
+                JsonObject trackToRemove = new JsonObject();
+                trackToRemove.addProperty("uri", currentTrack.getUri());
+                tracksToRemove.add(trackToRemove);
+                this.spotifyAPI.removeItemsFromPlaylist(currentPlaylist.getId(), tracksToRemove).build().execute();
+                System.out.println("Spotify: Remove Track: [" + currentTrack.getName() + "] from Current Playlist [" + currentPlaylist.getName() + "]");
+            }
+            else {
+                System.out.println("Spotify: Remove Current Track from Current Playlist: No Track or Playlist");
+            }
+        }
+        catch (IOException | ParseException ignored) {}
+        catch (SpotifyWebApiException spotifyWebApiException) {
+            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
+            this.handleSpotifyWebApiException(spotifyWebApiException, this::removeCurrentTrackFromCurrentPlaylist);
         }
     }
 
