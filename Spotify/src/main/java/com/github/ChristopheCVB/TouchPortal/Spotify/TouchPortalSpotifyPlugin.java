@@ -43,7 +43,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     public static final String KEY_SPOTIFY_OAUTH_ACCESS_TOKEN = "spotify.oauthaccestoken";
     public static final String KEY_SPOTIFY_OAUTH_REFRESH_TOKEN = "spotify.oauthrefreshtoken";
     public static final String KEY_STATES_UPDATE_INTERVAL = "states.updateInterval";
-    public static final String KEY_ALBUM_IMAGE_SIZE = "image.size";
+    public static final String KEY_IMAGE_SIZE = "image.size";
 
     private static final String ACTION_DATA_CHOICE_PLAY = "Play";
     private static final String ACTION_DATA_CHOICE_PAUSE = "Pause";
@@ -338,7 +338,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
             ByteArrayOutputStream byteArrayOutputStream = null;
             try {
                 JFXPanel jfxPanel = new JFXPanel();
-                double imageSize = Double.parseDouble(this.getProperty(TouchPortalSpotifyPlugin.KEY_ALBUM_IMAGE_SIZE, "256"));
+                double imageSize = Double.parseDouble(this.getProperty(TouchPortalSpotifyPlugin.KEY_IMAGE_SIZE, "256"));
                 javafx.scene.image.Image image = new javafx.scene.image.Image(imageUrl, imageSize, imageSize, true, true, false);
                 byteArrayOutputStream = new ByteArrayOutputStream();
 
