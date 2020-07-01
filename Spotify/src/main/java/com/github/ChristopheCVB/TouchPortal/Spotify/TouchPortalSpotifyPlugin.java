@@ -18,15 +18,16 @@ import com.wrapper.spotify.model_objects.miscellaneous.CurrentlyPlayingContext;
 import com.wrapper.spotify.model_objects.miscellaneous.Device;
 import com.wrapper.spotify.model_objects.specification.Image;
 import com.wrapper.spotify.model_objects.specification.*;
-import javafx.embed.swing.JFXPanel;
-import javafx.embed.swing.SwingFXUtils;
 import org.apache.hc.core5.http.ParseException;
+import org.imgscalr.Scalr;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URL;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -261,17 +262,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     }
 
     private void updateCurrentTrackFromPlaybackInfo(CurrentlyPlayingContext playbackInfo) {
-        if (playbackInfo != null) {
-            if (playbackInfo.getItem().getType() == ModelObjectType.TRACK) {
-                this.updateCurrentTrack((Track) playbackInfo.getItem());
-            }
-            else {
-                this.updateCurrentTrack(null);
-            }
-        }
-        else {
-            this.updateCurrentTrack(null);
-        }
+        this.updateCurrentTrack(playbackInfo != null && playbackInfo.getItem().getType() == ModelObjectType.TRACK ? (Track) playbackInfo.getItem() : null);
     }
 
     private void updateCurrentTrack(Track currentTrack) {
@@ -316,38 +307,35 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     }
 
     private void updateCurrentTrackImage(Track currentTrack) {
+        boolean imageSent = false;
         if (currentTrack != null) {
             if (currentTrack.getAlbum().getImages().length > 0) {
                 Image albumImage = currentTrack.getAlbum().getImages()[0];
-                this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackImage.ID, this.imageUrlToBase64(albumImage.getUrl()));
-            }
-            else {
-                this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackImage.ID, "", true);
+                imageSent = this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackImage.ID, this.imageUrlToBase64(albumImage.getUrl()), true);
             }
         }
-        else {
+        if (!imageSent) {
             this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackImage.ID, "", true);
         }
     }
 
     private String imageUrlToBase64(String imageUrl) {
-        String base64 = null;
+        String base64 = "";
         if (this.base64Images.containsKey(imageUrl)) {
             base64 = this.base64Images.get(imageUrl);
         }
         else {
             ByteArrayOutputStream byteArrayOutputStream = null;
             try {
-                JFXPanel jfxPanel = new JFXPanel();
-                double imageSize = Double.parseDouble(this.getProperty(TouchPortalSpotifyPlugin.KEY_IMAGE_SIZE, "256"));
-                javafx.scene.image.Image image = new javafx.scene.image.Image(imageUrl, imageSize, imageSize, true, true, false);
-                byteArrayOutputStream = new ByteArrayOutputStream();
+                int imageSize = Integer.parseInt(this.getProperty(TouchPortalSpotifyPlugin.KEY_IMAGE_SIZE, "256"));
+                BufferedImage bufferedImage = ImageIO.read(new URL(imageUrl));
+                BufferedImage resizedBufferedImage = Scalr.resize(bufferedImage, imageSize);
 
-                ImageIO.write(SwingFXUtils.fromFXImage(image, null), "png", byteArrayOutputStream);
+                ImageIO.write(resizedBufferedImage, "jpg", byteArrayOutputStream = new ByteArrayOutputStream());
                 base64 = Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
                 this.base64Images.put(imageUrl, base64);
             }
-            catch (Exception ignored) {}
+            catch (IOException ignored) {}
             finally {
                 if (byteArrayOutputStream != null) {
                     try {
@@ -362,21 +350,15 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
     private void updateCurrentPlaylistName(CurrentlyPlayingContext playbackInfo) {
         try {
+            boolean nameSent = false;
             if (playbackInfo != null && playbackInfo.getContext() != null) {
-                //noinspection SwitchStatementWithTooFewBranches
-                switch (playbackInfo.getContext().getType()) {
-                    case PLAYLIST:
-                        String[] playlistUriParts = playbackInfo.getContext().getUri().split(":");
-                        Playlist playlist = this.spotifyAPI.getPlaylist(playlistUriParts[playlistUriParts.length - 1]).build().execute();
-                        this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistName.ID, playlist.getName());
-                        break;
-
-                    default:
-                        this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistName.ID, "", true);
-                        break;
+                if (playbackInfo.getContext().getType() == ModelObjectType.PLAYLIST) {
+                    String[] playlistUriParts = playbackInfo.getContext().getUri().split(":");
+                    Playlist playlist = this.spotifyAPI.getPlaylist(playlistUriParts[playlistUriParts.length - 1]).build().execute();
+                    nameSent = this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistName.ID, playlist.getName());
                 }
             }
-            else {
+            if (!nameSent) {
                 this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistName.ID, "", true);
             }
         }
@@ -389,6 +371,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
     private void updateCurrentPlaylistImage(CurrentlyPlayingContext playbackInfo) {
         try {
+            boolean imageSent = false;
             if (playbackInfo != null && playbackInfo.getContext() != null) {
                 //noinspection SwitchStatementWithTooFewBranches
                 switch (playbackInfo.getContext().getType()) {
@@ -396,19 +379,12 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                         String[] playlistUriParts = playbackInfo.getContext().getUri().split(":");
                         Playlist playlist = this.spotifyAPI.getPlaylist(playlistUriParts[playlistUriParts.length - 1]).build().execute();
                         if (playlist.getImages().length > 0) {
-                            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistImage.ID, this.imageUrlToBase64(playlist.getImages()[0].getUrl()));
+                            imageSent = this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistImage.ID, this.imageUrlToBase64(playlist.getImages()[0].getUrl()), true);
                         }
-                        else {
-                            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistImage.ID, "", true);
-                        }
-                        break;
-
-                    default:
-                        this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistImage.ID, "", true);
                         break;
                 }
             }
-            else {
+            if (!imageSent) {
                 this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistImage.ID, "", true);
             }
         }
