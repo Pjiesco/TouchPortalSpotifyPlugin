@@ -311,7 +311,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         if (currentTrack != null) {
             if (currentTrack.getAlbum().getImages().length > 0) {
                 Image albumImage = currentTrack.getAlbum().getImages()[0];
-                imageSent = this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackImage.ID, this.imageUrlToBase64(albumImage.getUrl()), true);
+                this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackImage.ID, this.imageUrlToBase64(albumImage.getUrl()), true);
+                imageSent = true;
             }
         }
         if (!imageSent) {
@@ -335,7 +336,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 base64 = Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
                 this.base64Images.put(imageUrl, base64);
             }
-            catch (IOException ignored) {}
+            catch (Exception ignored) {}
             finally {
                 if (byteArrayOutputStream != null) {
                     try {
@@ -355,7 +356,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 if (playbackInfo.getContext().getType() == ModelObjectType.PLAYLIST) {
                     String[] playlistUriParts = playbackInfo.getContext().getUri().split(":");
                     Playlist playlist = this.spotifyAPI.getPlaylist(playlistUriParts[playlistUriParts.length - 1]).build().execute();
-                    nameSent = this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistName.ID, playlist.getName());
+                    this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistName.ID, playlist.getName());
+                    nameSent = true;
                 }
             }
             if (!nameSent) {
@@ -379,7 +381,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                         String[] playlistUriParts = playbackInfo.getContext().getUri().split(":");
                         Playlist playlist = this.spotifyAPI.getPlaylist(playlistUriParts[playlistUriParts.length - 1]).build().execute();
                         if (playlist.getImages().length > 0) {
-                            imageSent = this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistImage.ID, this.imageUrlToBase64(playlist.getImages()[0].getUrl()), true);
+                            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaylistImage.ID, this.imageUrlToBase64(playlist.getImages()[0].getUrl()), true);
+                            imageSent = true;
                         }
                         break;
                 }
