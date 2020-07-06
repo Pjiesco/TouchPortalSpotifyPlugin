@@ -330,7 +330,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
             try {
                 int imageSize = Integer.parseInt(this.getProperty(TouchPortalSpotifyPlugin.KEY_IMAGE_SIZE, "256"));
                 String finalImageUrl = imageUrl;
-                if (imageUrl.contains("/default")) {
+                if (!imageUrl.contains("==/default") && imageUrl.contains("/default")) {
                     finalImageUrl = imageUrl.replace("/default", "");
                 }
                 BufferedImage bufferedImage = ImageIO.read(new URL(finalImageUrl));
