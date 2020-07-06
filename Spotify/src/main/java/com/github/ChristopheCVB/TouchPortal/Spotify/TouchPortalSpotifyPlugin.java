@@ -329,14 +329,20 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
             ByteArrayOutputStream byteArrayOutputStream = null;
             try {
                 int imageSize = Integer.parseInt(this.getProperty(TouchPortalSpotifyPlugin.KEY_IMAGE_SIZE, "256"));
-                BufferedImage bufferedImage = ImageIO.read(new URL(imageUrl));
+                String finalImageUrl = imageUrl;
+                if (imageUrl.contains("/default")) {
+                    finalImageUrl = imageUrl.replace("/default", "");
+                }
+                BufferedImage bufferedImage = ImageIO.read(new URL(finalImageUrl));
                 BufferedImage resizedBufferedImage = Scalr.resize(bufferedImage, imageSize);
 
                 ImageIO.write(resizedBufferedImage, "jpg", byteArrayOutputStream = new ByteArrayOutputStream());
                 base64 = Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
                 this.base64Images.put(imageUrl, base64);
             }
-            catch (Exception ignored) {}
+            catch (Exception exception) {
+                System.out.println(exception.getMessage() + " for Image URL: " + imageUrl);
+            }
             finally {
                 if (byteArrayOutputStream != null) {
                     try {
