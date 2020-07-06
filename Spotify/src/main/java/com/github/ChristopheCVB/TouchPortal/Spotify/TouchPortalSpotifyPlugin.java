@@ -968,6 +968,19 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
     }
 
+    @Action(name = "Start Resource by ID", prefix = "Spotify Start", description = "Start playing a Resource (Album/Playlist/Artist) by ID", format = "Start Resource with ID {$resourceUri$}", categoryId = "BaseCategory")
+    private void startResourceByID(@Data(label = "Resource URI") String resourceUri) {
+        try {
+            this.spotifyAPI.startResumeUsersPlayback().context_uri(resourceUri).build().execute();
+            System.out.println("Spotify: Playlist Start Public: " + resourceUri);
+        }
+        catch (IOException | ParseException ignored) {}
+        catch (SpotifyWebApiException spotifyWebApiException) {
+            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
+            this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.startResourceByID(resourceUri));
+        }
+    }
+
     private synchronized void handleSpotifyWebApiException(SpotifyWebApiException spotifyWebApiException, Runnable runnable) {
         if (spotifyWebApiException.getMessage().contains("expired")) {
             try {
