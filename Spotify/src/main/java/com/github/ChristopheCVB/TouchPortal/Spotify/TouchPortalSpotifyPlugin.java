@@ -974,11 +974,18 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
     }
 
-    @Action(name = "Start Resource by ID", prefix = "Spotify Start", description = "Start playing a Resource (Album/Playlist/Artist) by ID", format = "Start Resource with ID {$resourceUri$}", categoryId = "BaseCategory")
+    @Action(name = "Start Resource by ID", prefix = "Spotify Start", description = "Start playing a Resource (Album/Playlist/Artist/Track) by ID", format = "Start Resource with ID {$resourceUri$}", categoryId = "BaseCategory")
     private void startResourceByID(@Data(label = "Resource URI") String resourceUri) {
         try {
-            this.spotifyAPI.startResumeUsersPlayback().context_uri(resourceUri).build().execute();
-            System.out.println("Spotify: Playlist Start Public: " + resourceUri);
+            if (resourceUri.startsWith("spotify:track:")) {
+                JsonArray uris = new JsonArray();
+                uris.add(resourceUri);
+                this.spotifyAPI.startResumeUsersPlayback().uris(uris).build().execute();
+            }
+            else {
+                this.spotifyAPI.startResumeUsersPlayback().context_uri(resourceUri).build().execute();
+            }
+            System.out.println("Spotify: Start Resource by ID: " + resourceUri);
         }
         catch (IOException | ParseException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
