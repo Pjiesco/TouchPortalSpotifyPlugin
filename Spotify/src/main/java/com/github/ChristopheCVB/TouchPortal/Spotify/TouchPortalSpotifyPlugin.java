@@ -38,7 +38,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     public static final String PLUGIN_HOME_URL = "http://christophecvb.com/Touch%20Portal/Plugins/Spotify/";
     public static final String PLUGIN_CONFIG_URL = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "plugin.config";
     public static final String PLUGIN_UPDATE_URL = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "?update=true&from=" + BuildConfig.VERSION_CODE;
-    public static final String KEY_PLUGIN_VERSION = "plugin.version";
     public static final String KEY_SPOTIFY_CLIENT_ID = "spotify.clientid";
     public static final String KEY_SPOTIFY_CLIENT_SECRET = "spotify.clientsecret";
     public static final String KEY_SPOTIFY_OAUTH_CODE = "spotify.oauthcode";
@@ -114,7 +113,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         super(touchPortalPluginFolder, true);
 
         if (this.loadProperties("plugin.config")) {
-
             String clientId = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_CLIENT_ID);
             String clientSecret = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_CLIENT_SECRET);
 
