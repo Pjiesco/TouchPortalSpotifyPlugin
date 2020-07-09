@@ -422,7 +422,9 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 storedDevices.add(discoveredDevice);
             }
             this.setStoredDevices(storedDevices);
-            this.sendChoiceUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.Actions.PlayerStartPlayingThroughDevice.Devices.ID, storedDevices.stream().map(storedDevice -> storedDevice.name).toArray(String[]::new));
+            String[] deviceNames = storedDevices.stream().map(storedDevice -> storedDevice.name).toArray(String[]::new);
+            this.sendChoiceUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.Actions.PlayerStartPlayingThroughDevice.Devices.ID, deviceNames);
+            this.sendChoiceUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.Actions.PlayerTransferPlaybackToDevice.Devices.ID, deviceNames);
         }
         catch (ParseException | IOException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
@@ -550,7 +552,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         try {
             for (StoredDevice storedDevice : this.getStoredDevices()) {
                 if (devices[0].equals(storedDevice.name)) {
-                    System.out.println(storedDevice.toString());
                     this.spotifyAPI.startResumeUsersPlayback().device_id(storedDevice.id).build().execute();
                     System.out.println("Spotify: Playback Start through Device: " + devices[0]);
                     Thread.sleep(250);
@@ -563,6 +564,28 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         catch (SpotifyWebApiException spotifyWebApiException) {
             System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playerStartPlayingThroughDevice(devices));
+        }
+    }
+
+    @Action(name = "Transfer Playback to Device", description = "Transfer Playback to selected Device", format = "Transfer Playback to {$devices$}", categoryId = "BaseCategory")
+    private void playerTransferPlaybackToDevice(@Data(label = "Device") String[] devices) {
+        try {
+            for (StoredDevice storedDevice : this.getStoredDevices()) {
+                if (devices[0].equals(storedDevice.name)) {
+                    JsonArray transferDevices = new JsonArray();
+                    transferDevices.add(storedDevice.id);
+                    this.spotifyAPI.transferUsersPlayback(transferDevices).play(true).build().execute();
+                    System.out.println("Spotify: Transfer Playback to Device: " + devices[0]);
+                    Thread.sleep(250);
+                    this.updateStates();
+                    break;
+                }
+            }
+        }
+        catch (IOException | ParseException | InterruptedException ignored) {}
+        catch (SpotifyWebApiException spotifyWebApiException) {
+            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
+            this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playerTransferPlaybackToDevice(devices));
         }
     }
 
