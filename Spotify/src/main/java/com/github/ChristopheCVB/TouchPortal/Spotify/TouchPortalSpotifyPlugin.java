@@ -12,6 +12,7 @@ import com.google.gson.JsonObject;
 import com.wrapper.spotify.SpotifyApi;
 import com.wrapper.spotify.enums.ModelObjectType;
 import com.wrapper.spotify.exceptions.SpotifyWebApiException;
+import com.wrapper.spotify.exceptions.detailed.TooManyRequestsException;
 import com.wrapper.spotify.model_objects.credentials.AuthorizationCodeCredentials;
 import com.wrapper.spotify.model_objects.miscellaneous.CurrentlyPlaying;
 import com.wrapper.spotify.model_objects.miscellaneous.CurrentlyPlayingContext;
@@ -178,20 +179,20 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 boolean connectedPairedAndListening = spotifyPlugin.connectThenPairAndListen(spotifyPlugin);
 
                 if (connectedPairedAndListening) {
-                    spotifyPlugin.startUpdatingStatesAndValues();
+                    spotifyPlugin.startUpdatingStatesAndValues(0);
                 }
             }
         }
     }
 
-    private void startUpdatingStatesAndValues() {
+    private void startUpdatingStatesAndValues(long initialDelay) {
         this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
         int updateInterval = 30;
         try {
             updateInterval = Integer.parseInt(this.getProperty(TouchPortalSpotifyPlugin.KEY_STATES_UPDATE_INTERVAL));
         }
         catch (NumberFormatException ignored) {}
-        this.scheduledExecutorService.scheduleAtFixedRate(this::updateStatesAndChoices, 0, updateInterval, TimeUnit.SECONDS);
+        this.scheduledExecutorService.scheduleAtFixedRate(this::updateStatesAndChoices, initialDelay, updateInterval, TimeUnit.SECONDS);
     }
 
     private void updateStatesAndChoices() {
@@ -1016,7 +1017,11 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     }
 
     private synchronized void handleSpotifyWebApiException(SpotifyWebApiException spotifyWebApiException, Runnable runnable) {
-        if (spotifyWebApiException.getMessage().contains("expired")) {
+        if (spotifyWebApiException.getMessage().contains("access token expired")) {
+            this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN);
+            this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN);
+            this.storeProperties();
+
             try {
                 AuthorizationCodeCredentials credentials = this.spotifyAPI.authorizationCodeRefresh().build().execute();
 
@@ -1027,12 +1032,14 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
                 runnable.run();
             }
-            catch (IOException | SpotifyWebApiException | ParseException exception) {
-                this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN);
-                this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN);
-                this.storeProperties();
+            catch (IOException | ParseException | SpotifyWebApiException exception) {
                 this.startOAuthProcess();
             }
+        }
+        else if (spotifyWebApiException instanceof TooManyRequestsException) {
+            TooManyRequestsException tooManyRequestsException = (TooManyRequestsException) spotifyWebApiException;
+            this.scheduledExecutorService.shutdownNow();
+            this.startUpdatingStatesAndValues(tooManyRequestsException.getRetryAfter());
         }
     }
 
