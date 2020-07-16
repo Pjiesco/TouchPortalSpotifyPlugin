@@ -13,6 +13,7 @@ import com.wrapper.spotify.SpotifyApi;
 import com.wrapper.spotify.enums.ModelObjectType;
 import com.wrapper.spotify.exceptions.SpotifyWebApiException;
 import com.wrapper.spotify.exceptions.detailed.TooManyRequestsException;
+import com.wrapper.spotify.exceptions.detailed.UnauthorizedException;
 import com.wrapper.spotify.model_objects.credentials.AuthorizationCodeCredentials;
 import com.wrapper.spotify.model_objects.miscellaneous.CurrentlyPlaying;
 import com.wrapper.spotify.model_objects.miscellaneous.CurrentlyPlayingContext;
@@ -218,7 +219,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (ParseException | IOException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, this::updateStates);
         }
     }
@@ -280,7 +280,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (ParseException | IOException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.updateCurrentTrackLikeStatus(currentTrack));
         }
     }
@@ -371,7 +370,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (ParseException | IOException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.updateCurrentPlaylistName(playbackInfo));
         }
     }
@@ -429,7 +427,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (ParseException | IOException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, this::updateAvailableDevices);
         }
     }
@@ -511,7 +508,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (ParseException | IOException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, this::updateCurrentUserPlaylists);
         }
     }
@@ -533,7 +529,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 }
                 catch (IOException | ParseException ignored) {}
                 catch (SpotifyWebApiException spotifyWebApiException) {
-                    System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
                     this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playerPlayPause(playPauseActions));
                 }
                 break;
@@ -563,7 +558,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (IOException | ParseException | InterruptedException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playerStartPlayingThroughDevice(devices));
         }
     }
@@ -585,7 +579,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (IOException | ParseException | InterruptedException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playerTransferPlaybackToDevice(devices));
         }
     }
@@ -605,7 +598,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (IOException | ParseException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, this::playerStartResume);
         }
     }
@@ -625,7 +617,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (IOException | ParseException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, this::playerPause);
         }
     }
@@ -640,7 +631,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (IOException | ParseException | InterruptedException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, this::playerNextTrack);
         }
     }
@@ -655,7 +645,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (IOException | ParseException | InterruptedException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, this::playerPreviousTrack);
         }
     }
@@ -680,7 +669,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (IOException | ParseException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             int finalVolume = volume;
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playerSetVolume(finalVolume));
         }
@@ -696,7 +684,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (IOException | ParseException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playerVolumeUp(volumeStep));
         }
     }
@@ -711,7 +698,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (IOException | ParseException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playerVolumeDown(volumeStep));
         }
     }
@@ -741,7 +727,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 }
                 catch (IOException | ParseException ignored) {}
                 catch (SpotifyWebApiException spotifyWebApiException) {
-                    System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
                     this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playerMuteUnmute(muteUnmuteActions));
                 }
                 break;
@@ -787,7 +772,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (ParseException | IOException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.trackLikeDislike(likeDislikeActions));
         }
     }
@@ -802,7 +786,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
             }
             catch (IOException | ParseException ignored) {}
             catch (SpotifyWebApiException spotifyWebApiException) {
-                System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
                 this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playlistStart(playlistNames));
             }
         }
@@ -840,7 +823,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (IOException | ParseException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playerShuffleMode(shuffleModeActions));
         }
     }
@@ -907,7 +889,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (IOException | ParseException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.playerRepeatMode(repeatModeActions));
         }
     }
@@ -953,7 +934,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (IOException | ParseException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.saveCurrentTrackToPlaylist(playlistNames));
         }
     }
@@ -991,7 +971,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (IOException | ParseException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, this::removeCurrentTrackFromCurrentPlaylist);
         }
     }
@@ -1011,13 +990,13 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         catch (IOException | ParseException ignored) {}
         catch (SpotifyWebApiException spotifyWebApiException) {
-            System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
             this.handleSpotifyWebApiException(spotifyWebApiException, () -> this.startResourceByID(resourceUri));
         }
     }
 
     private synchronized void handleSpotifyWebApiException(SpotifyWebApiException spotifyWebApiException, Runnable runnable) {
-        if (spotifyWebApiException.getMessage().contains("access token expired")) {
+        System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
+        if (spotifyWebApiException instanceof UnauthorizedException) {
             this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN);
             this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN);
             this.storeProperties();
@@ -1033,11 +1012,18 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 runnable.run();
             }
             catch (IOException | ParseException | SpotifyWebApiException exception) {
-                this.startOAuthProcess();
+                if (exception instanceof TooManyRequestsException) {
+                    System.out.println("Try to refresh token but rate limit exceeded");
+                }
+                else {
+                    exception.printStackTrace();
+                    this.startOAuthProcess();
+                }
             }
         }
         else if (spotifyWebApiException instanceof TooManyRequestsException) {
             TooManyRequestsException tooManyRequestsException = (TooManyRequestsException) spotifyWebApiException;
+            System.out.println(tooManyRequestsException.getMessage() + ": Retry After " + tooManyRequestsException.getRetryAfter());
             this.scheduledExecutorService.shutdownNow();
             this.startUpdatingStatesAndValues(tooManyRequestsException.getRetryAfter());
         }
