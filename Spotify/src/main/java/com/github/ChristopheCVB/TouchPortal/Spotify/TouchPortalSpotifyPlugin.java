@@ -998,10 +998,10 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
         if (spotifyWebApiException instanceof UnauthorizedException) {
             this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN);
-            this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN);
             this.storeProperties();
 
             try {
+                System.out.println("Spotify RefreshToken: " + this.spotifyAPI.getRefreshToken());
                 AuthorizationCodeCredentials credentials = this.spotifyAPI.authorizationCodeRefresh().build().execute();
 
                 String oAuthAccessToken = credentials.getAccessToken();
