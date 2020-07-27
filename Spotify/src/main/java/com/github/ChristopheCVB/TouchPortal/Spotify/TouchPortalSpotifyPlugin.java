@@ -108,11 +108,9 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
     /**
      * Constructor
-     *
-     * @param touchPortalPluginFolder String - args[1]
      */
-    private TouchPortalSpotifyPlugin(String touchPortalPluginFolder) {
-        super(touchPortalPluginFolder, true);
+    private TouchPortalSpotifyPlugin() {
+        super(true);
 
         if (this.loadProperties("plugin.config")) {
             String clientId = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_CLIENT_ID);
@@ -172,10 +170,10 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     }
 
     public static void main(String[] args) {
-        if (args != null && args.length == 2) {
+        if (args != null && args.length == 1) {
             if (PluginHelper.COMMAND_START.equals(args[0])) {
                 // Initialize the Plugin
-                TouchPortalSpotifyPlugin spotifyPlugin = new TouchPortalSpotifyPlugin(args[1]);
+                TouchPortalSpotifyPlugin spotifyPlugin = new TouchPortalSpotifyPlugin();
 
                 boolean connectedPairedAndListening = spotifyPlugin.connectThenPairAndListen(spotifyPlugin);
 

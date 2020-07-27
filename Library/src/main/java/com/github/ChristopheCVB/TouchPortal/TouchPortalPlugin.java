@@ -74,7 +74,7 @@ public abstract class TouchPortalPlugin {
     /**
      * Touch Portal Plugin Folder passed at start command
      */
-    private final String touchPortalPluginFolder;
+    private String touchPortalPluginFolder;
     /**
      * Touch Portal Socket Client connection
      */
@@ -124,11 +124,18 @@ public abstract class TouchPortalPlugin {
     /**
      * Constructor
      *
-     * @param touchPortalPluginFolder String - args[1]
-     * @param parallelizeActions      boolean - Parallelize Actions execution
+     * @param parallelizeActions boolean - Parallelize Actions execution
      */
-    protected TouchPortalPlugin(String touchPortalPluginFolder, boolean parallelizeActions) {
-        this.touchPortalPluginFolder = touchPortalPluginFolder.trim();
+    protected TouchPortalPlugin(boolean parallelizeActions) {
+        try {
+            this.touchPortalPluginFolder = new File(".").getCanonicalPath();
+        }
+        catch (IOException ioException) {
+            this.touchPortalPluginFolder = new File(".").getAbsolutePath();
+            if (this.touchPortalPluginFolder.endsWith(".")) {
+                this.touchPortalPluginFolder = this.touchPortalPluginFolder.substring(0, this.touchPortalPluginFolder.length() - 2);
+            }
+        }
         this.pluginClass = this.getClass();
         this.callbacksExecutor = Executors.newFixedThreadPool(parallelizeActions ? 5 : 1);
     }
@@ -547,6 +554,45 @@ public abstract class TouchPortalPlugin {
         return sent;
     }
 
+    public boolean createState(String categoryId, String stateId, String description, String value) {
+        boolean sent = false;
+        if (categoryId != null && !categoryId.isEmpty() && stateId != null && !stateId.isEmpty() && description != null && !description.isEmpty() && value != null && !value.isEmpty()) {
+            stateId = StateHelper.getStateId(this.pluginClass, categoryId, stateId);
+            if (!this.currentStates.containsKey(stateId)) {
+                JsonObject stateUpdateMessage = new JsonObject();
+                stateUpdateMessage.addProperty(SentMessageHelper.TYPE, SentMessageHelper.TYPE_CREATE_STATE);
+                stateUpdateMessage.addProperty(SentMessageHelper.ID, stateId);
+                stateUpdateMessage.addProperty(SentMessageHelper.DESCRIPTION, description);
+                stateUpdateMessage.addProperty(SentMessageHelper.DEFAULT_VALUE, value);
+                sent = this.send(stateUpdateMessage);
+                if (sent) {
+                    this.currentStates.put(stateId, value);
+                }
+                System.out.println("Create State [" + stateId + "] Sent [" + sent + "]");
+            }
+            else {
+                sent = this.sendStateUpdate(stateId, value);
+            }
+        }
+        return sent;
+    }
+
+    public boolean removeState(String categoryId, String stateId) {
+        boolean sent = false;
+        if (categoryId != null && !categoryId.isEmpty() && stateId != null && !stateId.isEmpty()) {
+            stateId = StateHelper.getStateId(this.pluginClass, categoryId, stateId);
+            JsonObject stateUpdateMessage = new JsonObject();
+            stateUpdateMessage.addProperty(SentMessageHelper.TYPE, SentMessageHelper.TYPE_REMOVE_STATE);
+            stateUpdateMessage.addProperty(SentMessageHelper.ID, stateId);
+            sent = this.send(stateUpdateMessage);
+            if (sent) {
+                this.currentStates.remove(stateId);
+            }
+            System.out.println("Remove State [" + stateId + "] Sent [" + sent + "]");
+        }
+        return sent;
+    }
+
     /**
      * Is the Plugin connected to the Touch Portal Plugin System
      *
@@ -567,7 +613,7 @@ public abstract class TouchPortalPlugin {
      * @return File resourceFile
      */
     public File getResourceFile(String resourcePluginFilePath) {
-        return Paths.get(this.touchPortalPluginFolder + this.pluginClass.getSimpleName() + "/" + resourcePluginFilePath).toFile();
+        return Paths.get(this.touchPortalPluginFolder + "/" + resourcePluginFilePath).toFile();
     }
 
     /**
