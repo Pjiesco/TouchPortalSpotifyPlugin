@@ -78,33 +78,33 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
     private ScheduledExecutorService scheduledExecutorService;
 
-    @State(defaultValue = "100", desc = "Spotify Current Volume (0 - 100)")
+    @State(defaultValue = "100", desc = "Spotify Current Volume (0 - 100)", categoryId = "BaseCategory")
     private String currentVolume;
-    @State(defaultValue = "", desc = "Spotify Current Artist Name")
+    @State(defaultValue = "", desc = "Spotify Current Artist Name", categoryId = "BaseCategory")
     private String currentArtistName;
-    @State(defaultValue = "", desc = "Spotify Current Track Name")
+    @State(defaultValue = "", desc = "Spotify Current Track Name", categoryId = "BaseCategory")
     private String currentTrackName;
-    @State(defaultValue = "", desc = "Spotify Current Track Image")
+    @State(defaultValue = "", desc = "Spotify Current Track Image", categoryId = "BaseCategory")
     private String currentTrackImage;
-    @State(defaultValue = "", desc = "Spotify Current Playlist Image")
+    @State(defaultValue = "", desc = "Spotify Current Playlist Image", categoryId = "BaseCategory")
     private String currentPlaylistImage;
-    @State(defaultValue = "", desc = "Spotify Current Playlist Name")
+    @State(defaultValue = "", desc = "Spotify Current Playlist Name", categoryId = "BaseCategory")
     private String currentPlaylistName;
-    @Event(format = "When Repeat Mode changes to $val", name = "When Repeat Mode changes")
-    @State(defaultValue = TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_OFF, desc = "Spotify Current Repeat Mode", valueChoices = {TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_TRACK, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CONTEXT, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_OFF})
-    private String[] currentRepeatMode;
-    @Event(format = "When Shuffle Mode changes to $val", name = "When Shuffle Mode changes")
-    @State(defaultValue = TouchPortalSpotifyPlugin.STATE_VALUE_DISABLED, desc = "Spotify Current Shuffle Mode", valueChoices = {TouchPortalSpotifyPlugin.STATE_VALUE_ENABLED, TouchPortalSpotifyPlugin.STATE_VALUE_DISABLED})
-    private String[] currentShuffleMode;
-    @Event(format = "When Current Track Like status changes to $val", name = "When Current Track Like status changes")
-    @State(defaultValue = "", desc = "Spotify Current Track Like Status", valueChoices = {TouchPortalSpotifyPlugin.STATE_VALUE_LIKED, TouchPortalSpotifyPlugin.STATE_VALUE_DISLIKED})
-    private String[] currentTrackLikeStatus;
-    @Event(format = "When Current Playback status changes to $val", name = "When Current Playback status changes")
-    @State(defaultValue = TouchPortalSpotifyPlugin.STATE_VALUE_PAUSED, desc = "Spotify Current Playback Status", valueChoices = {TouchPortalSpotifyPlugin.STATE_VALUE_PLAYING, TouchPortalSpotifyPlugin.STATE_VALUE_PAUSED})
-    private String[] currentPlaybackStatus;
-    @Event(format = "When Current Mute status changes to $val", name = "When Current Mute status changes")
-    @State(defaultValue = TouchPortalSpotifyPlugin.STATE_VALUE_MUTED, desc = "Spotify Current Mute Status", valueChoices = {TouchPortalSpotifyPlugin.STATE_VALUE_MUTED, TouchPortalSpotifyPlugin.STATE_VALUE_UNMUTED})
-    private String[] currentMuteStatus;
+    @Event(valueChoices = {TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_TRACK, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CONTEXT, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_OFF}, format = "When Repeat Mode changes to $val", name = "When Repeat Mode changes")
+    @State(defaultValue = TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_OFF, desc = "Spotify Current Repeat Mode", categoryId = "BaseCategory")
+    private String currentRepeatMode;
+    @Event(valueChoices = {TouchPortalSpotifyPlugin.STATE_VALUE_ENABLED, TouchPortalSpotifyPlugin.STATE_VALUE_DISABLED}, format = "When Shuffle Mode changes to $val", name = "When Shuffle Mode changes")
+    @State(defaultValue = TouchPortalSpotifyPlugin.STATE_VALUE_DISABLED, desc = "Spotify Current Shuffle Mode", categoryId = "BaseCategory")
+    private String currentShuffleMode;
+    @Event(valueChoices = {TouchPortalSpotifyPlugin.STATE_VALUE_LIKED, TouchPortalSpotifyPlugin.STATE_VALUE_DISLIKED}, format = "When Current Track Like status changes to $val", name = "When Current Track Like status changes")
+    @State(defaultValue = "", desc = "Spotify Current Track Like Status", categoryId = "BaseCategory")
+    private String currentTrackLikeStatus;
+    @Event(valueChoices = {TouchPortalSpotifyPlugin.STATE_VALUE_PLAYING, TouchPortalSpotifyPlugin.STATE_VALUE_PAUSED}, format = "When Current Playback status changes to $val", name = "When Current Playback status changes")
+    @State(defaultValue = TouchPortalSpotifyPlugin.STATE_VALUE_PAUSED, desc = "Spotify Current Playback Status", categoryId = "BaseCategory")
+    private String currentPlaybackStatus;
+    @Event(valueChoices = {TouchPortalSpotifyPlugin.STATE_VALUE_MUTED, TouchPortalSpotifyPlugin.STATE_VALUE_UNMUTED}, format = "When Current Mute status changes to $val", name = "When Current Mute status changes")
+    @State(defaultValue = TouchPortalSpotifyPlugin.STATE_VALUE_MUTED, desc = "Spotify Current Mute Status", categoryId = "BaseCategory")
+    private String currentMuteStatus;
 
     /**
      * Constructor
@@ -1059,6 +1059,10 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
     @Override
     public void onInfo(TPInfo tpInfo) {
+    }
+
+    @Override
+    public void onListChange(String actionId, String listId, String listInstanceId, String value) {
     }
 
     private enum Categories {

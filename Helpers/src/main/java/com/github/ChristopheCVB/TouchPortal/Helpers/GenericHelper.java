@@ -48,9 +48,9 @@ public class GenericHelper {
      * @param reference String
      * @param element   Element
      * @return String tpType
-     * @throws TPTypeException If the Type is not supported
+     * @throws GenericHelper.TPTypeException If the Type is not supported
      */
-    public static String getTouchPortalType(String reference, Element element) throws TPTypeException {
+    public static String getTouchPortalType(String reference, Element element) throws GenericHelper.TPTypeException {
         return GenericHelper.getTouchPortalType(element.asType().toString(), reference);
     }
 
@@ -60,9 +60,9 @@ public class GenericHelper {
      * @param rawType   String
      * @param reference String
      * @return String tpType
-     * @throws TPTypeException If the Type is not supported
+     * @throws GenericHelper.TPTypeException If the Type is not supported
      */
-    public static String getTouchPortalType(String rawType, String reference) throws TPTypeException {
+    public static String getTouchPortalType(String rawType, String reference) throws GenericHelper.TPTypeException {
         String tpType;
         switch (rawType) {
             case "short":
