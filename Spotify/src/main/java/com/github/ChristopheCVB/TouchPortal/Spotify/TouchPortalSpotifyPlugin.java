@@ -140,6 +140,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
             this.reloadProperties();
             String oAuthCode = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_CODE);
+            System.out.println("Spotify OAuth Code: " + oAuthCode);
             AuthorizationCodeCredentials credentials = this.spotifyAPI.authorizationCode(oAuthCode).build().execute();
             this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_CODE);
             String oAuthAccessToken = credentials.getAccessToken();
@@ -191,7 +192,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
             updateInterval = Integer.parseInt(this.getProperty(TouchPortalSpotifyPlugin.KEY_STATES_UPDATE_INTERVAL));
         }
         catch (NumberFormatException ignored) {}
-        this.scheduledExecutorService.scheduleAtFixedRate(this::updateStatesAndChoices, initialDelay, updateInterval, TimeUnit.SECONDS);
+        this.scheduledExecutorService.scheduleWithFixedDelay(this::updateStatesAndChoices, initialDelay, Math.max(updateInterval, 10), TimeUnit.SECONDS);
     }
 
     private void updateStatesAndChoices() {
@@ -997,6 +998,11 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         if (spotifyWebApiException instanceof UnauthorizedException) {
             this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN);
             this.storeProperties();
+
+            String refreshToken = this.spotifyAPI.getRefreshToken();
+            if (refreshToken == null) {
+
+            }
 
             try {
                 System.out.println("Spotify RefreshToken: " + this.spotifyAPI.getRefreshToken());
