@@ -994,32 +994,33 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     }
 
     private synchronized void handleSpotifyWebApiException(SpotifyWebApiException spotifyWebApiException, Runnable runnable) {
-        System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getMessage());
+        System.out.println("SpotifyWebApiException: " + spotifyWebApiException.getClass().getSimpleName() + " - " + spotifyWebApiException.getMessage());
         if (spotifyWebApiException instanceof UnauthorizedException) {
-            this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN);
-            this.storeProperties();
-
-            String refreshToken = this.spotifyAPI.getRefreshToken();
-            if (refreshToken == null) {
-
-            }
-
             try {
                 System.out.println("Spotify RefreshToken: " + this.spotifyAPI.getRefreshToken());
                 AuthorizationCodeCredentials credentials = this.spotifyAPI.authorizationCodeRefresh().build().execute();
 
                 String oAuthAccessToken = credentials.getAccessToken();
                 this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN, oAuthAccessToken);
-                this.storeProperties();
                 this.spotifyAPI.setAccessToken(oAuthAccessToken);
+
+                String oAuthRefreshToken = credentials.getRefreshToken();
+                if (oAuthRefreshToken != null && !oAuthRefreshToken.isEmpty()) {
+                    this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN, oAuthRefreshToken);
+                    this.spotifyAPI.setRefreshToken(oAuthRefreshToken);
+                }
+                this.storeProperties();
 
                 runnable.run();
             }
             catch (IOException | ParseException | SpotifyWebApiException exception) {
                 if (exception instanceof TooManyRequestsException) {
-                    System.out.println("Try to refresh token but rate limit exceeded");
+                    System.out.println(exception.getMessage());
                 }
                 else {
+                    this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN);
+                    this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN);
+                    this.storeProperties();
                     exception.printStackTrace();
                     this.startOAuthProcess();
                 }
