@@ -6,7 +6,7 @@ It uses the [Touch Portal Plugin SDK](https://github.com/ChristopheCVB/TouchPort
 
 ## Releases
 
-Latest version is 1.0.4
+Latest version is 1.3.0
 
 Go to [releases](https://github.com/ChristopheCVB/TouchPortalSpotifyPlugin/releases)
 
