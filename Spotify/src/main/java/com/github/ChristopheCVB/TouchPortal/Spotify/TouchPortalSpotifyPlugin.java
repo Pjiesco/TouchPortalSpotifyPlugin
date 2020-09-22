@@ -86,6 +86,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private String currentTrackName;
     @State(defaultValue = "", desc = "Spotify Current Track Image", categoryId = "BaseCategory")
     private String currentTrackImage;
+    @State(defaultValue = "", desc = "Spotify Current Track URL", categoryId = "BaseCategory")
+    private String currentTrackUrl;
     @State(defaultValue = "", desc = "Spotify Current Playlist Image", categoryId = "BaseCategory")
     private String currentPlaylistImage;
     @State(defaultValue = "", desc = "Spotify Current Playlist Name", categoryId = "BaseCategory")
@@ -288,6 +290,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         this.updateCurrentArtistName(currentTrack);
         this.updateCurrentTrackName(currentTrack);
         this.updateCurrentTrackImage(currentTrack);
+        this.updateCurrentTrackUrl(currentTrack);
         this.updateCurrentTrackLikeStatus(currentTrack);
     }
 
@@ -321,6 +324,15 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         else {
             this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackName.ID, "", true);
+        }
+    }
+
+    private void updateCurrentTrackUrl(Track currentTrack) {
+        if (currentTrack != null) {
+            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackUrl.ID, currentTrack.getExternalUrls() != null ? currentTrack.getExternalUrls().get("spotify") : "");
+        }
+        else {
+            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackUrl.ID, "", true);
         }
     }
 
