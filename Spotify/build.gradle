@@ -34,7 +34,7 @@ dependencies {
     compile project(':Annotations')
     compile project(':Helpers')
 
-    compile 'se.michaelthelin.spotify:spotify-web-api-java:6.1.0'
+    compile 'se.michaelthelin.spotify:spotify-web-api-java:6.3.0'
     compile 'org.imgscalr:imgscalr-lib:4.+'
 
     annotationProcessor project(':AnnotationsProcessor')
