@@ -822,6 +822,30 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
     }
 
+    @Action(name = "Start Playing Liked Songs", prefix = "Spotify Playlist", description = "Start playing Liked Songs", categoryId = "BaseCategory")
+    private void likedSongsStart() {
+        try {
+            ArrayList<SavedTrack> savedTracks = new ArrayList<>();
+            Paging<SavedTrack> pagedUserSavedTracks = this.spotifyAPI.getUsersSavedTracks().limit(50).build().execute();
+            Collections.addAll(savedTracks, pagedUserSavedTracks.getItems());
+            while (pagedUserSavedTracks.getNext() != null) {
+                pagedUserSavedTracks = this.spotifyAPI.getUsersSavedTracks().limit(50).offset(pagedUserSavedTracks.getOffset()).build().execute();
+            }
+
+            JsonArray savedTracksUris = new JsonArray();
+            for (SavedTrack savedTrack : savedTracks) {
+                savedTracksUris.add(savedTrack.getTrack().getUri());
+            }
+
+
+            this.spotifyAPI.startResumeUsersPlayback().uris(savedTracksUris).build().execute();
+        }
+        catch (IOException | ParseException ignored) {}
+        catch (SpotifyWebApiException spotifyWebApiException) {
+            this.handleSpotifyWebApiException(spotifyWebApiException, this::likedSongsStart);
+        }
+    }
+
     @Action(name = "Player Shuffle Mode", prefix = "Spotify Player", description = "Player Shuffle Mode", format = "{$shuffleModeActions$} Shuffle Mode", categoryId = "BaseCategory")
     private void playerShuffleMode(@Data(label = "Action", valueChoices = {TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_ENABLE, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_DISABLE, TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_TOGGLE}, defaultValue = TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_TOGGLE) String[] shuffleModeActions) {
         try {
