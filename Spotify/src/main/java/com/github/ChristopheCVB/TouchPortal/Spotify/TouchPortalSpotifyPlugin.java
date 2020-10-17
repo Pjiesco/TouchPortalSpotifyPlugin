@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
 
 @Plugin(version = BuildConfig.VERSION_CODE, colorLight = "#23CF5F", colorDark = "#000000")
 public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements TouchPortalPlugin.TouchPortalPluginListener {
-    public static final String PLUGIN_HOME_URL = "http://christophecvb.com/Touch%20Portal/Plugins/Spotify/";
+    public static final String PLUGIN_HOME_URL = "https://christophecvb.com/touch-portal/plugins/spotify/";
     public static final String PLUGIN_CONFIG_URL = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "plugin.config";
     public static final String PLUGIN_UPDATE_URL = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "?update=true&from=" + BuildConfig.VERSION_CODE;
     public static final String KEY_SPOTIFY_CLIENT_ID = "spotify.clientid";
