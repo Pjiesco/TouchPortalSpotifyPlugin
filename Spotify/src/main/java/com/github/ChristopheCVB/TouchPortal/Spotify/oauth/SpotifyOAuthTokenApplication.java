@@ -22,7 +22,7 @@ import java.util.Properties;
 
 public class SpotifyOAuthTokenApplication extends Application {
     private static final String[] SCOPES = new String[]{"streaming", "user-read-playback-state", "user-modify-playback-state", "user-library-modify", "user-library-read", "playlist-modify-private", "playlist-modify-public", "playlist-read-collaborative", "playlist-read-private"};
-    public static final String REDIRECT_URI = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "oauth2.html";
+    public static final String REDIRECT_URI = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "oauth2";
 
     private static URI getAuthorizationURI(SpotifyApi spotifyApi) {
         return spotifyApi.authorizationCodeUri().scope(String.join(",", SCOPES)).build().execute();

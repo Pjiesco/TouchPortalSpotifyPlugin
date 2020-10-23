@@ -817,7 +817,7 @@ public abstract class TouchPortalPlugin {
         InputStream cloudPropertiesStream = null;
         try {
             String pluginConfigHost = new URL(pluginConfigURL).getHost();
-            OkHttpClient okHttpClient = new OkHttpClient.Builder().hostnameVerifier((hostname, sslSession) -> hostname.contains(pluginConfigHost)).followRedirects(true).followSslRedirects(true).build();
+            OkHttpClient okHttpClient = new OkHttpClient.Builder().followRedirects(true).followSslRedirects(true).build();
             Call call = okHttpClient.newCall(new Request.Builder().url(pluginConfigURL).build());
             Response response = call.execute();
             if (response.isSuccessful()) {
