@@ -107,6 +107,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     @Event(valueChoices = {TouchPortalSpotifyPlugin.STATE_VALUE_MUTED, TouchPortalSpotifyPlugin.STATE_VALUE_UNMUTED}, format = "When Current Mute status changes to $val", name = "When Current Mute status changes")
     @State(defaultValue = TouchPortalSpotifyPlugin.STATE_VALUE_MUTED, desc = "Spotify Current Mute Status", categoryId = "BaseCategory")
     private String currentMuteStatus;
+    @State(defaultValue = "", desc = "Spotify Current Active Device", categoryId = "BaseCategory")
+    private String currentActiveDevice;
 
     /**
      * Constructor
@@ -204,13 +206,16 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         catch (NumberFormatException ignored) {}
         try {
             CurrentlyPlayingContext playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback().build().execute();
+            String currentActiveDevice = "";
             if (playbackInfo == null || playbackInfo.getDevice() == null) {
                 nextSchedule = 60;
             }
             else {
+                currentActiveDevice = playbackInfo.getDevice().getName();
                 this.updateStates(playbackInfo);
                 this.updateChoices();
             }
+            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentActiveDevice.ID, currentActiveDevice, true);
 
             this.scheduledExecutorService.schedule(this::updateStatesAndChoices, Math.max(nextSchedule, 10), TimeUnit.SECONDS);
         }
