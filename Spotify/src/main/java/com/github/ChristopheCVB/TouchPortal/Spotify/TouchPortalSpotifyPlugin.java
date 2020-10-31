@@ -4,7 +4,7 @@ import com.github.ChristopheCVB.TouchPortal.Annotations.Category;
 import com.github.ChristopheCVB.TouchPortal.Annotations.Event;
 import com.github.ChristopheCVB.TouchPortal.Annotations.*;
 import com.github.ChristopheCVB.TouchPortal.Helpers.PluginHelper;
-import com.github.ChristopheCVB.TouchPortal.Spotify.oauth.SpotifyOAuthTokenApplication;
+import com.github.ChristopheCVB.TouchPortal.Spotify.oauth.OAuth2Server;
 import com.github.ChristopheCVB.TouchPortal.TouchPortalPlugin;
 import com.github.ChristopheCVB.TouchPortal.model.TPInfo;
 import com.google.gson.JsonArray;
@@ -40,6 +40,13 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     public static final String PLUGIN_HOME_URL = "https://www.christophecvb.com/touch-portal/plugins/spotify/";
     public static final String PLUGIN_CONFIG_URL = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "plugin.config";
     public static final String PLUGIN_UPDATE_URL = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "?update=true&from=" + BuildConfig.VERSION_CODE;
+    private static final String[] SCOPES = new String[]{"streaming", "user-read-playback-state", "user-modify-playback-state", "user-library-modify", "user-library-read", "playlist-modify-private", "playlist-modify-public", "playlist-read-collaborative", "playlist-read-private"};
+    public static final String REDIRECT_URI = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "oauth2";
+
+    private static URI getAuthorizationURI(SpotifyApi spotifyApi) {
+        return spotifyApi.authorizationCodeUri().scope(String.join(",", SCOPES)).build().execute();
+    }
+
     public static final String KEY_SPOTIFY_CLIENT_ID = "spotify.clientid";
     public static final String KEY_SPOTIFY_CLIENT_SECRET = "spotify.clientsecret";
     public static final String KEY_SPOTIFY_OAUTH_CODE = "spotify.oauthcode";
@@ -71,6 +78,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private static final String STATE_VALUE_UNMUTED = "Unmuted";
 
     private SpotifyApi spotifyAPI;
+    private OAuth2Server oAuth2Server;
 
     private int lastKnownPositiveVolume = 100;
     private final ArrayList<PlaylistSimplified> userPlaylists = new ArrayList<>();
@@ -120,7 +128,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
             String clientId = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_CLIENT_ID);
             String clientSecret = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_CLIENT_SECRET);
 
-            this.spotifyAPI = new SpotifyApi.Builder().setClientId(clientId).setClientSecret(clientSecret).setRedirectUri(URI.create(SpotifyOAuthTokenApplication.REDIRECT_URI)).build();
+            this.spotifyAPI = new SpotifyApi.Builder().setClientId(clientId).setClientSecret(clientSecret).setRedirectUri(URI.create(TouchPortalSpotifyPlugin.REDIRECT_URI)).build();
 
             String oAuthAccessToken = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN);
             String oAuthRefreshToken = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN);
@@ -131,6 +139,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 this.checkForUpdate();
                 this.spotifyAPI.setAccessToken(oAuthAccessToken);
                 this.spotifyAPI.setRefreshToken(oAuthRefreshToken);
+                this.onSpotifyAPIReady();
             }
         }
         else {
@@ -138,25 +147,37 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
     }
 
-    private void startOAuthProcess() {
-        try {
-            SpotifyOAuthTokenApplication.initiate(this.spotifyAPI, this.getPropertiesFile().getAbsolutePath());
+    private void onSpotifyAPIReady() {
+        boolean connectedPairedAndListening = this.connectThenPairAndListen(this);
 
-            this.reloadProperties();
-            String oAuthCode = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_CODE);
-            System.out.println("Spotify OAuth Code: " + oAuthCode);
-            AuthorizationCodeCredentials credentials = this.spotifyAPI.authorizationCode(oAuthCode).build().execute();
-            this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_CODE);
-            String oAuthAccessToken = credentials.getAccessToken();
-            String oAuthRefreshToken = credentials.getRefreshToken();
-            this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN, oAuthAccessToken);
-            this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN, oAuthRefreshToken);
-            this.storeProperties();
-            this.spotifyAPI.setAccessToken(oAuthAccessToken);
-            this.spotifyAPI.setRefreshToken(oAuthRefreshToken);
+        if (connectedPairedAndListening) {
+            this.startUpdatingStatesAndChoices(3);
         }
-        catch (SpotifyWebApiException | IOException | ParseException exception) {
-            System.out.println("OAuth Process Failed: " + exception.getMessage());
+    }
+
+    private void startOAuthProcess() {
+        if (this.oAuth2Server == null) {
+            this.oAuth2Server = new OAuth2Server(TouchPortalSpotifyPlugin.getAuthorizationURI(this.spotifyAPI), oAuthCode -> {
+                try {
+                    System.out.println("Spotify OAuth Code: " + oAuthCode);
+                    AuthorizationCodeCredentials credentials = this.spotifyAPI.authorizationCode(oAuthCode).build().execute();
+                    this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_CODE);
+                    String oAuthAccessToken = credentials.getAccessToken();
+                    String oAuthRefreshToken = credentials.getRefreshToken();
+                    this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN, oAuthAccessToken);
+                    this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN, oAuthRefreshToken);
+                    this.storeProperties();
+                    this.spotifyAPI.setAccessToken(oAuthAccessToken);
+                    this.spotifyAPI.setRefreshToken(oAuthRefreshToken);
+
+                    this.oAuth2Server = null;
+
+                    this.onSpotifyAPIReady();
+                }
+                catch (SpotifyWebApiException | IOException | ParseException exception) {
+                    System.out.println("OAuth Process Failed: " + exception.getMessage());
+                }
+            });
         }
     }
 
@@ -178,13 +199,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         if (args != null && args.length == 1) {
             if (PluginHelper.COMMAND_START.equals(args[0])) {
                 // Initialize the Plugin
-                TouchPortalSpotifyPlugin spotifyPlugin = new TouchPortalSpotifyPlugin();
-
-                boolean connectedPairedAndListening = spotifyPlugin.connectThenPairAndListen(spotifyPlugin);
-
-                if (connectedPairedAndListening) {
-                    spotifyPlugin.startUpdatingStatesAndChoices(3);
-                }
+                new TouchPortalSpotifyPlugin();
             }
         }
     }
