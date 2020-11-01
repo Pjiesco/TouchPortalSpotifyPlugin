@@ -3,19 +3,32 @@ package com.github.ChristopheCVB.TouchPortal.Spotify.oauth;
 import com.sun.net.httpserver.HttpServer;
 
 import java.awt.*;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.URI;
 
 public class OAuth2Server {
     public OAuth2Server(URI authorizationURI, OAuthCodeListener oAuthCodeListener) {
         try {
+            ServerSocket serverSocket = new ServerSocket(0);
+            int availableTCPPort = serverSocket.getLocalPort();
+            serverSocket.close();
+            String stateQuery = "state=" + availableTCPPort;
+            String newQuery = authorizationURI.getQuery();
+            if (newQuery == null) {
+                newQuery = stateQuery;
+            }
+            else {
+                newQuery += "&" + stateQuery;
+            }
+
+            authorizationURI = new URI(authorizationURI.getScheme(), authorizationURI.getAuthority(), authorizationURI.getPath(), newQuery, authorizationURI.getFragment());
             if (Desktop.isDesktopSupported()) {
                 Desktop.getDesktop().browse(authorizationURI);
             }
 
-            HttpServer httpServer = HttpServer.create(new InetSocketAddress("localhost", 8042), 0);
+            HttpServer httpServer = HttpServer.create(new InetSocketAddress("localhost", availableTCPPort), 0);
 
             httpServer.createContext("/oauth", httpExchange -> {
                 String requestMethod = httpExchange.getRequestMethod();
@@ -50,7 +63,7 @@ public class OAuth2Server {
             });
             httpServer.start();
         }
-        catch (IOException e) {
+        catch (Exception e) {
             e.printStackTrace();
         }
     }
