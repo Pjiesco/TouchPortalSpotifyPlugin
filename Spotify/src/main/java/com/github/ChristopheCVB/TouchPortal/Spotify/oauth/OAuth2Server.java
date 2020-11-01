@@ -19,7 +19,8 @@ public class OAuth2Server {
 
             httpServer.createContext("/oauth", httpExchange -> {
                 String requestMethod = httpExchange.getRequestMethod();
-                if ("POST".equalsIgnoreCase(requestMethod)) {
+                httpExchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+                if ("POST".equalsIgnoreCase(requestMethod) || "GET".equalsIgnoreCase(requestMethod)) {
                     String oAuthCode = null;
                     String query = httpExchange.getRequestURI().getQuery();
                     String[] params = query.split("&");
@@ -35,13 +36,16 @@ public class OAuth2Server {
                     OutputStream outputStream = httpExchange.getResponseBody();
                     String response = "{\"success\": true}";
                     httpExchange.getResponseHeaders().add("Content-Type", "application/json");
-                    httpExchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
                     httpExchange.sendResponseHeaders(200, response.length());
                     outputStream.write(response.getBytes());
                     outputStream.flush();
                     outputStream.close();
 
                     httpServer.stop(0);
+                }
+                else if ("OPTIONS".equalsIgnoreCase(requestMethod)) {
+                    httpExchange.getResponseHeaders().add("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+                    httpExchange.sendResponseHeaders(204, -1);
                 }
             });
             httpServer.start();

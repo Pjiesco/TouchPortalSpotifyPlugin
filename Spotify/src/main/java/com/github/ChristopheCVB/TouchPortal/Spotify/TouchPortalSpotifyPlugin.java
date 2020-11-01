@@ -49,7 +49,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
     public static final String KEY_SPOTIFY_CLIENT_ID = "spotify.clientid";
     public static final String KEY_SPOTIFY_CLIENT_SECRET = "spotify.clientsecret";
-    public static final String KEY_SPOTIFY_OAUTH_CODE = "spotify.oauthcode";
     public static final String KEY_SPOTIFY_OAUTH_ACCESS_TOKEN = "spotify.oauthaccestoken";
     public static final String KEY_SPOTIFY_OAUTH_REFRESH_TOKEN = "spotify.oauthrefreshtoken";
     public static final String KEY_STATES_UPDATE_INTERVAL = "states.updateInterval";
@@ -161,7 +160,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 try {
                     System.out.println("Spotify OAuth Code: " + oAuthCode);
                     AuthorizationCodeCredentials credentials = this.spotifyAPI.authorizationCode(oAuthCode).build().execute();
-                    this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_CODE);
                     String oAuthAccessToken = credentials.getAccessToken();
                     String oAuthRefreshToken = credentials.getRefreshToken();
                     this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN, oAuthAccessToken);
