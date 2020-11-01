@@ -156,10 +156,10 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
     private void startOAuthProcess() {
         if (this.oAuth2Server == null) {
-            this.oAuth2Server = new OAuth2Server(TouchPortalSpotifyPlugin.getAuthorizationURI(this.spotifyAPI), oAuthCode -> {
+            this.oAuth2Server = new OAuth2Server(TouchPortalSpotifyPlugin.getAuthorizationURI(this.spotifyAPI), oAuth2Code -> {
                 try {
-                    System.out.println("Spotify OAuth Code: " + oAuthCode);
-                    AuthorizationCodeCredentials credentials = this.spotifyAPI.authorizationCode(oAuthCode).build().execute();
+                    System.out.println("Spotify OAuth Code: " + oAuth2Code);
+                    AuthorizationCodeCredentials credentials = this.spotifyAPI.authorizationCode(oAuth2Code).build().execute();
                     String oAuthAccessToken = credentials.getAccessToken();
                     String oAuthRefreshToken = credentials.getRefreshToken();
                     this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN, oAuthAccessToken);

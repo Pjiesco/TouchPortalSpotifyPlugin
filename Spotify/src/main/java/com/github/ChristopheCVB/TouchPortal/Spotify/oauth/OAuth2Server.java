@@ -9,7 +9,7 @@ import java.net.ServerSocket;
 import java.net.URI;
 
 public class OAuth2Server {
-    public OAuth2Server(URI authorizationURI, OAuthCodeListener oAuthCodeListener) {
+    public OAuth2Server(URI authorizationURI, OAuth2CodeListener oAuth2CodeListener) {
         try {
             ServerSocket serverSocket = new ServerSocket(0);
             int availableTCPPort = serverSocket.getLocalPort();
@@ -44,7 +44,7 @@ public class OAuth2Server {
                             break;
                         }
                     }
-                    oAuthCodeListener.onOAuthCode(oAuthCode);
+                    oAuth2CodeListener.onOAuthCode(oAuthCode);
 
                     OutputStream outputStream = httpExchange.getResponseBody();
                     String response = "{\"success\": true}";
@@ -68,7 +68,7 @@ public class OAuth2Server {
         }
     }
 
-    public interface OAuthCodeListener {
-        void onOAuthCode(String oAuthCode);
+    public interface OAuth2CodeListener {
+        void onOAuthCode(String oAuth2Code);
     }
 }
