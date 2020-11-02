@@ -4,9 +4,9 @@ import com.github.ChristopheCVB.TouchPortal.Annotations.Category;
 import com.github.ChristopheCVB.TouchPortal.Annotations.Event;
 import com.github.ChristopheCVB.TouchPortal.Annotations.*;
 import com.github.ChristopheCVB.TouchPortal.Helpers.PluginHelper;
-import com.github.ChristopheCVB.TouchPortal.Spotify.oauth.OAuth2Server;
 import com.github.ChristopheCVB.TouchPortal.TouchPortalPlugin;
 import com.github.ChristopheCVB.TouchPortal.model.TPInfo;
+import com.github.ChristopheCVB.TouchPortal.oauth2.OAuth2LocalServerReceiver;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.wrapper.spotify.SpotifyApi;
@@ -40,20 +40,14 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     public static final String PLUGIN_HOME_URL = "https://www.christophecvb.com/touch-portal/plugins/spotify/";
     public static final String PLUGIN_CONFIG_URL = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "plugin.config";
     public static final String PLUGIN_UPDATE_URL = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "?update=true&from=" + BuildConfig.VERSION_CODE;
-    private static final String[] SCOPES = new String[]{"streaming", "user-read-playback-state", "user-modify-playback-state", "user-library-modify", "user-library-read", "playlist-modify-private", "playlist-modify-public", "playlist-read-collaborative", "playlist-read-private"};
     public static final String REDIRECT_URI = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "oauth2";
-
-    private static URI getAuthorizationURI(SpotifyApi spotifyApi) {
-        return spotifyApi.authorizationCodeUri().scope(String.join(",", SCOPES)).build().execute();
-    }
-
     public static final String KEY_SPOTIFY_CLIENT_ID = "spotify.clientid";
     public static final String KEY_SPOTIFY_CLIENT_SECRET = "spotify.clientsecret";
     public static final String KEY_SPOTIFY_OAUTH_ACCESS_TOKEN = "spotify.oauthaccestoken";
     public static final String KEY_SPOTIFY_OAUTH_REFRESH_TOKEN = "spotify.oauthrefreshtoken";
     public static final String KEY_STATES_UPDATE_INTERVAL = "states.updateInterval";
     public static final String KEY_IMAGE_SIZE = "image.size";
-
+    private static final String[] SCOPES = new String[]{"streaming", "user-read-playback-state", "user-modify-playback-state", "user-library-modify", "user-library-read", "playlist-modify-private", "playlist-modify-public", "playlist-read-collaborative", "playlist-read-private"};
     private static final String ACTION_DATA_CHOICE_PLAY = "Play";
     private static final String ACTION_DATA_CHOICE_PAUSE = "Pause";
     private static final String ACTION_DATA_CHOICE_TOGGLE = "Toggle";
@@ -77,7 +71,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private static final String STATE_VALUE_UNMUTED = "Unmuted";
 
     private SpotifyApi spotifyAPI;
-    private OAuth2Server oAuth2Server;
+    private OAuth2LocalServerReceiver oAuth2LocalServerReceiver;
 
     private int lastKnownPositiveVolume = 100;
     private final ArrayList<PlaylistSimplified> userPlaylists = new ArrayList<>();
@@ -146,6 +140,15 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
     }
 
+    public static void main(String[] args) {
+        if (args != null && args.length == 1) {
+            if (PluginHelper.COMMAND_START.equals(args[0])) {
+                // Initialize the Plugin
+                new TouchPortalSpotifyPlugin();
+            }
+        }
+    }
+
     private void onSpotifyAPIReady() {
         boolean connectedPairedAndListening = this.connectThenPairAndListen(this);
 
@@ -154,28 +157,36 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
     }
 
-    private void startOAuthProcess() {
-        if (this.oAuth2Server == null) {
-            this.oAuth2Server = new OAuth2Server(TouchPortalSpotifyPlugin.getAuthorizationURI(this.spotifyAPI), oAuth2Code -> {
-                try {
-                    System.out.println("Spotify OAuth Code: " + oAuth2Code);
-                    AuthorizationCodeCredentials credentials = this.spotifyAPI.authorizationCode(oAuth2Code).build().execute();
-                    String oAuthAccessToken = credentials.getAccessToken();
-                    String oAuthRefreshToken = credentials.getRefreshToken();
-                    this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN, oAuthAccessToken);
-                    this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN, oAuthRefreshToken);
-                    this.storeProperties();
-                    this.spotifyAPI.setAccessToken(oAuthAccessToken);
-                    this.spotifyAPI.setRefreshToken(oAuthRefreshToken);
+    private synchronized void startOAuthProcess() {
+        if (this.oAuth2LocalServerReceiver == null) {
+            this.oAuth2LocalServerReceiver = new OAuth2LocalServerReceiver.Builder().setCallbackPath("/oauth").build();
+            this.oAuth2LocalServerReceiver.waitForCode(this.spotifyAPI.authorizationCodeUri()
+                            .scope(String.join(",", TouchPortalSpotifyPlugin.SCOPES))
+                            .state(this.oAuth2LocalServerReceiver.getPort() + "")
+                            .build()
+                            .execute(),
+                    (oAuth2Code, oAuth2Error) -> {
+                        if (oAuth2Error == null) {
+                            try {
+                                System.out.println("Spotify OAuth Code: " + oAuth2Code);
+                                AuthorizationCodeCredentials credentials = this.spotifyAPI.authorizationCode(oAuth2Code).build().execute();
+                                String oAuthAccessToken = credentials.getAccessToken();
+                                String oAuthRefreshToken = credentials.getRefreshToken();
+                                this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN, oAuthAccessToken);
+                                this.setProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN, oAuthRefreshToken);
+                                this.storeProperties();
+                                this.spotifyAPI.setAccessToken(oAuthAccessToken);
+                                this.spotifyAPI.setRefreshToken(oAuthRefreshToken);
 
-                    this.oAuth2Server = null;
+                                this.oAuth2LocalServerReceiver = null;
 
-                    this.onSpotifyAPIReady();
-                }
-                catch (SpotifyWebApiException | IOException | ParseException exception) {
-                    System.out.println("OAuth Process Failed: " + exception.getMessage());
-                }
-            });
+                                this.onSpotifyAPIReady();
+                            }
+                            catch (SpotifyWebApiException | IOException | ParseException exception) {
+                                System.out.println("OAuth Process Failed: " + exception.getMessage());
+                            }
+                        }
+                    });
         }
     }
 
@@ -189,15 +200,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 catch (IOException ioException) {
                     ioException.printStackTrace();
                 }
-            }
-        }
-    }
-
-    public static void main(String[] args) {
-        if (args != null && args.length == 1) {
-            if (PluginHelper.COMMAND_START.equals(args[0])) {
-                // Initialize the Plugin
-                new TouchPortalSpotifyPlugin();
             }
         }
     }
@@ -504,40 +506,6 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         String rawDiscoveredDevices = String.join("::", alreadyStoredDevices.stream().map(StoredDevice::toString).toArray(String[]::new));
         this.setProperty("plugin.discoveredDevices", rawDiscoveredDevices);
         this.storeProperties();
-    }
-
-    private static class StoredDevice {
-        public String name;
-        public String id;
-
-        public StoredDevice(Device device) {
-            this.name = device.getName();
-            this.id = device.getId();
-        }
-
-        public StoredDevice(String rawDevice) {
-            String[] split = rawDevice.split(":SD:");
-            this.name = split[0];
-            this.id = split[1];
-        }
-
-        @Override
-        public String toString() {
-            return this.name + ":SD:" + this.id;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            StoredDevice that = (StoredDevice) o;
-            return name.equals(that.name);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(id);
-        }
     }
 
     private void updateCurrentUserPlaylists() {
@@ -1148,5 +1116,39 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private enum Categories {
         @Category(name = "Spotify", imagePath = "images/icon-24.png")
         BaseCategory
+    }
+
+    private static class StoredDevice {
+        public String name;
+        public String id;
+
+        public StoredDevice(Device device) {
+            this.name = device.getName();
+            this.id = device.getId();
+        }
+
+        public StoredDevice(String rawDevice) {
+            String[] split = rawDevice.split(":SD:");
+            this.name = split[0];
+            this.id = split[1];
+        }
+
+        @Override
+        public String toString() {
+            return this.name + ":SD:" + this.id;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            StoredDevice that = (StoredDevice) o;
+            return name.equals(that.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(id);
+        }
     }
 }
