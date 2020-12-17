@@ -410,7 +410,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
             if (playbackInfo != null && playbackInfo.getContext() != null) {
                 if (playbackInfo.getContext().getType() == ModelObjectType.PLAYLIST) {
                     String[] playlistUriParts = playbackInfo.getContext().getUri().split(":");
-                    Playlist playlist = this.spotifyAPI.getPlaylist(playlistUriParts[playlistUriParts.length - 1]).build().execute();
+                    Playlist playlist = this.spotifyAPI.getPlaylist(playlistUriParts[playlistUriParts.length - 1]).build().execute(); // FIXME: Call to get current playlist data
 
                     this.updateCurrentPlaylistName(playlist);
                     this.updateCurrentPlaylistImage(playlist);
@@ -465,7 +465,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private void updateAvailableDevices() {
         try {
             ArrayList<StoredDevice> storedDevices = this.getStoredDevices();
-            Device[] availableDevices = this.spotifyAPI.getUsersAvailableDevices().build().execute();
+            Device[] availableDevices = this.spotifyAPI.getUsersAvailableDevices().build().execute(); // FIXME: Call to get Available devices
             for (Device availableDevice : availableDevices) {
                 StoredDevice discoveredDevice = new StoredDevice(availableDevice);
                 storedDevices.remove(discoveredDevice);
@@ -510,7 +510,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
 
     private void updateCurrentUserPlaylists() {
         try {
-            Paging<PlaylistSimplified> paginatedUserPlaylists = this.spotifyAPI.getListOfCurrentUsersPlaylists().limit(50).build().execute();
+            Paging<PlaylistSimplified> paginatedUserPlaylists = this.spotifyAPI.getListOfCurrentUsersPlaylists().limit(50).build().execute(); // FIXME: Call to get User's playlists
             ArrayList<PlaylistSimplified> queryingUserPlaylists = new ArrayList<>(Arrays.asList(paginatedUserPlaylists.getItems()));
             while (paginatedUserPlaylists.getNext() != null) {
                 paginatedUserPlaylists = this.spotifyAPI.getListOfCurrentUsersPlaylists().offset(queryingUserPlaylists.size()).limit(50).build().execute();
