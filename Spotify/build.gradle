@@ -1,16 +1,16 @@
-buildscript {
-    repositories {
-        maven {
-            url 'https://plugins.gradle.org/m2/'
-        }
-    }
-}
 plugins {
     id 'java'
-    id 'de.fuerstenau.buildconfig' version '1.1.8'
+    id 'com.github.gmazzo.buildconfig' version '3.0.0'
+    id 'com.christophecvb.touchportal.plugin-packager' version '7.0.0-alpha-3'
 }
 
-def versionMajor = 2
+repositories {
+    maven {
+        url 'https://oss.sonatype.org/content/repositories/snapshots/'
+    }
+}
+
+def versionMajor = 3
 def versionMinor = 0
 def versionPatch = 0
 
@@ -19,86 +19,23 @@ def mainClassPackage = 'com.github.ChristopheCVB.TouchPortal.Spotify'
 group mainClassPackage
 version "${versionMajor}.${versionMinor}.${versionPatch}"
 
-buildConfig {
-    appName = project.name
-    version = project.version
+tpPlugin.mainClassSimpleName = mainClassSimpleName
 
-    clsName = 'BuildConfig'
+buildConfig {
     packageName = project.group
 
-    buildConfigField 'int', 'VERSION_CODE', (versionMajor * 1000 + versionMinor * 100 + versionPatch) + ''
+    buildConfigField 'String', 'NAME', "\"${project.name}\""
+    buildConfigField 'String', 'VERSION_NAME', "\"${version}\""
+    buildConfigField 'long', 'VERSION_CODE', (versionMajor * 1000 + versionMinor * 100 + versionPatch) + ''
 }
 
 dependencies {
-    compile project(':Library')
-    compile project(':Annotations')
-    compile project(':Helpers')
+    implementation 'com.christophecvb.touchportal:plugin-sdk:7.0.0-alpha-3'
 
     compile 'se.michaelthelin.spotify:spotify-web-api-java:6.3.0'
     compile 'org.imgscalr:imgscalr-lib:4.+'
 
-    annotationProcessor project(':AnnotationsProcessor')
+    annotationProcessor 'com.christophecvb.touchportal:plugin-sdk-annotations-processor:7.0.0-alpha-3'
 
     testImplementation group: 'junit', name: 'junit', version: '4.12'
-}
-
-compileJava {
-    options.compilerArgs.add('-parameters')
-}
-
-jar {
-    manifest {
-        attributes 'Implementation-Title': "${mainClassSimpleName}",
-                'Implementation-Version': "${project.version}",
-                'Main-Class': "${mainClassPackage}.${mainClassSimpleName}"
-    }
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
-}
-
-task copyResources(type: Copy) {
-    from(file("$buildDir/resources/main/"))
-    into("$buildDir/plugin/${mainClassSimpleName}/")
-
-    doLast {
-        println 'Resources Copied into plugin directory'
-    }
-}
-
-task copyJar(type: Copy) {
-    dependsOn jar
-    from(file("$buildDir/libs/"))
-    into("$buildDir/plugin/${mainClassSimpleName}/")
-    rename {
-        "${mainClassSimpleName}.jar"
-    }
-
-    doLast {
-        println 'Jar Copied into plugin directory'
-    }
-}
-
-task copyGeneratedResources(type: Copy) {
-    dependsOn copyJar
-    from(file("$buildDir/generated/sources/annotationProcessor/java/main/resources/"))
-    into("$buildDir/plugin/${mainClassSimpleName}/")
-
-    doLast {
-        println 'Generated Resources Copied into plugin directory'
-    }
-}
-
-task packagePlugin(type: Zip) {
-    dependsOn copyResources, copyGeneratedResources, copyJar
-    group 'Touch Portal - Plugin'
-    description 'Package the Project into a TPP'
-
-    archiveFileName = "${mainClassSimpleName}.tpp"
-    destinationDirectory = file("$buildDir/plugin")
-    from "$buildDir/plugin/"
-    exclude "*.tpp"
-    includeEmptyDirs = false
-
-    doLast {
-        println 'Plugin Packaged'
-    }
 }

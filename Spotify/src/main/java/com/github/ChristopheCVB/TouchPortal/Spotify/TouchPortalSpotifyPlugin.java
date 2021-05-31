@@ -1,12 +1,15 @@
 package com.github.ChristopheCVB.TouchPortal.Spotify;
 
-import com.github.ChristopheCVB.TouchPortal.Annotations.Category;
-import com.github.ChristopheCVB.TouchPortal.Annotations.Event;
-import com.github.ChristopheCVB.TouchPortal.Annotations.*;
-import com.github.ChristopheCVB.TouchPortal.Helpers.PluginHelper;
-import com.github.ChristopheCVB.TouchPortal.TouchPortalPlugin;
-import com.github.ChristopheCVB.TouchPortal.model.TPInfo;
-import com.github.ChristopheCVB.TouchPortal.oauth2.OAuth2LocalServerReceiver;
+import com.christophecvb.touchportal.annotations.Category;
+import com.christophecvb.touchportal.annotations.Event;
+import com.christophecvb.touchportal.annotations.*;
+import com.christophecvb.touchportal.helpers.PluginHelper;
+import com.christophecvb.touchportal.TouchPortalPlugin;
+import com.christophecvb.touchportal.model.TPBroadcastMessage;
+import com.christophecvb.touchportal.model.TPInfoMessage;
+import com.christophecvb.touchportal.model.TPListChangeMessage;
+import com.christophecvb.touchportal.model.TPSettingsMessage;
+import com.christophecvb.touchportal.oauth2.OAuth2LocalServerReceiver;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.wrapper.spotify.SpotifyApi;
@@ -85,6 +88,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     private String currentArtistName;
     @State(defaultValue = "", desc = "Spotify Current Track Name", categoryId = "BaseCategory")
     private String currentTrackName;
+    @State(defaultValue = "", desc = "Spotify Current Track Album Name", categoryId = "BaseCategory")
+    private String currentTrackAlbumName;
     @State(defaultValue = "", desc = "Spotify Current Track Image", categoryId = "BaseCategory")
     private String currentTrackImage;
     @State(defaultValue = "", desc = "Spotify Current Track URL", categoryId = "BaseCategory")
@@ -307,11 +312,12 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     }
 
     private void updateCurrentTrack(Track currentTrack) {
-        this.updateCurrentArtistName(currentTrack);
         this.updateCurrentTrackName(currentTrack);
         this.updateCurrentTrackImage(currentTrack);
         this.updateCurrentTrackUrl(currentTrack);
         this.updateCurrentTrackLikeStatus(currentTrack);
+        this.updateCurrentArtistName(currentTrack);
+        this.updateCurrentTrackAlbumName(currentTrack);
     }
 
     private void updateCurrentTrackLikeStatus(Track currentTrack) {
@@ -344,6 +350,15 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
         }
         else {
             this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackName.ID, "", true);
+        }
+    }
+
+    private void updateCurrentTrackAlbumName(Track currentTrack) {
+        if (currentTrack != null && currentTrack.getAlbum() != null) {
+            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackAlbumName.ID, currentTrack.getAlbum().getName());
+        }
+        else {
+            this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentTrackAlbumName.ID, "", true);
         }
     }
 
@@ -1096,21 +1111,29 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
     }
 
     @Override
-    public void onDisconnect(Exception exception) {
+    public void onDisconnected(Exception exception) {
         this.scheduledExecutorService.shutdownNow();
         System.exit(0);
     }
 
     @Override
-    public void onReceive(JsonObject jsonMessage) {
+    public void onReceived(JsonObject jsonMessage) {
     }
 
     @Override
-    public void onInfo(TPInfo tpInfo) {
+    public void onInfo(TPInfoMessage tpInfoMessage) {
     }
 
     @Override
-    public void onListChange(String actionId, String listId, String listInstanceId, String value) {
+    public void onListChanged(TPListChangeMessage tpListChangeMessage) {
+    }
+
+    @Override
+    public void onBroadcast(TPBroadcastMessage tpBroadcastMessage) {
+    }
+
+    @Override
+    public void onSettings(TPSettingsMessage tpSettingsMessage) {
     }
 
     private enum Categories {

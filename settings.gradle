@@ -1,6 +1,2 @@
 rootProject.name = 'TouchPortalSpotifyPlugin'
-include 'Annotations'
-include 'AnnotationsProcessor'
-include 'Library'
-include 'Helpers'
 include 'Spotify'
