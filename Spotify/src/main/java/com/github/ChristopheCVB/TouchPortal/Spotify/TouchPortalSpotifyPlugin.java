@@ -856,23 +856,21 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements Touch
                 case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_ENABLE:
                     shuffleMode = true;
                     this.spotifyAPI.toggleShuffleForUsersPlayback(true).build().execute();
-                    System.out.println("Spotify: Player Shuffle Mode: " + shuffleMode);
                     break;
 
                 case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_DISABLE:
                     shuffleMode = false;
                     this.spotifyAPI.toggleShuffleForUsersPlayback(false).build().execute();
-                    System.out.println("Spotify: Player Shuffle Mode: " + shuffleMode);
                     break;
 
                 case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_TOGGLE:
                     if (playbackInfo != null) {
                         shuffleMode = !playbackInfo.getShuffle_state();
                         this.spotifyAPI.toggleShuffleForUsersPlayback(shuffleMode).build().execute();
-                        System.out.println("Spotify: Player Shuffle Mode: " + shuffleMode);
                     }
                     break;
             }
+            System.out.println("Spotify: Player Shuffle Mode: " + shuffleMode);
             if (shuffleMode != null) {
                 this.sendStateUpdate(TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentShuffleMode.ID, shuffleMode ? TouchPortalSpotifyPlugin.STATE_VALUE_ENABLED : TouchPortalSpotifyPlugin.STATE_VALUE_DISABLED);
             }
