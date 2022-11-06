@@ -1,13 +1,7 @@
 plugins {
     id 'java'
     id 'com.github.gmazzo.buildconfig' version '3.0.0'
-    id 'com.christophecvb.touchportal.plugin-packager' version '7.0.0-alpha-3'
-}
-
-repositories {
-    maven {
-        url 'https://oss.sonatype.org/content/repositories/snapshots/'
-    }
+    id 'com.christophecvb.touchportal.plugin-packager' version "$tppSDKVersion"
 }
 
 def versionMajor = 3
@@ -30,12 +24,12 @@ buildConfig {
 }
 
 dependencies {
-    implementation 'com.christophecvb.touchportal:plugin-sdk:7.0.0-alpha-3'
+    implementation 'com.christophecvb.touchportal:plugin-sdk:' + tppSDKVersion
 
-    compile 'se.michaelthelin.spotify:spotify-web-api-java:6.3.0'
-    compile 'org.imgscalr:imgscalr-lib:4.+'
+    implementation 'se.michaelthelin.spotify:spotify-web-api-java:6.3.0'
+    implementation 'org.imgscalr:imgscalr-lib:4.2'
 
-    annotationProcessor 'com.christophecvb.touchportal:plugin-sdk-annotations-processor:7.0.0-alpha-3'
+    annotationProcessor 'com.christophecvb.touchportal:plugin-sdk-annotations-processor:' + tppSDKVersion
 
     testImplementation group: 'junit', name: 'junit', version: '4.12'
 }
