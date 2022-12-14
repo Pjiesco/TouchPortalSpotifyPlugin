@@ -6,6 +6,7 @@ import com.christophecvb.touchportal.annotations.Category;
 import com.christophecvb.touchportal.annotations.Data;
 import com.christophecvb.touchportal.annotations.Event;
 import com.christophecvb.touchportal.annotations.Plugin;
+import com.christophecvb.touchportal.annotations.Setting;
 import com.christophecvb.touchportal.annotations.State;
 import com.christophecvb.touchportal.helpers.PluginHelper;
 import com.christophecvb.touchportal.model.TPBroadcastMessage;
@@ -17,25 +18,6 @@ import com.christophecvb.touchportal.model.TPSettingsMessage;
 import com.christophecvb.touchportal.oauth2.OAuth2LocalServerReceiver;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import java.awt.Desktop;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import javax.imageio.ImageIO;
-import org.apache.hc.core5.http.ParseException;
-import org.imgscalr.Scalr;
 import com.wrapper.spotify.SpotifyApi;
 import com.wrapper.spotify.enums.ModelObjectType;
 import com.wrapper.spotify.exceptions.SpotifyWebApiException;
@@ -53,6 +35,26 @@ import com.wrapper.spotify.model_objects.specification.PlaylistSimplified;
 import com.wrapper.spotify.model_objects.specification.PlaylistTrack;
 import com.wrapper.spotify.model_objects.specification.SavedTrack;
 import com.wrapper.spotify.model_objects.specification.Track;
+import java.awt.Desktop;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
+import javax.imageio.ImageIO;
+import org.apache.hc.core5.http.ParseException;
+import org.imgscalr.Scalr;
 
 @Plugin(
     version = BuildConfig.VERSION_CODE,
@@ -61,6 +63,8 @@ import com.wrapper.spotify.model_objects.specification.Track;
 )
 public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
     TouchPortalPlugin.TouchPortalPluginListener {
+
+  private static final Logger LOGGER = Logger.getLogger(TouchPortalPlugin.class.getName());
 
   public static final String PLUGIN_HOME_URL = "https://www.christophecvb.com/touch-portal/plugins/spotify/";
   public static final String PLUGIN_CONFIG_URL =
@@ -73,12 +77,9 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
       TouchPortalSpotifyPluginConstants.ID + ".UpdateAvailable.OpenWebsite";
 
   public static final String REDIRECT_URI = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "oauth2";
-  public static final String KEY_SPOTIFY_CLIENT_ID = "spotify.clientid";
-  public static final String KEY_SPOTIFY_CLIENT_SECRET = "spotify.clientsecret";
   public static final String KEY_SPOTIFY_OAUTH_ACCESS_TOKEN = "spotify.oauthaccestoken";
   public static final String KEY_SPOTIFY_OAUTH_REFRESH_TOKEN = "spotify.oauthrefreshtoken";
-  public static final String KEY_STATES_UPDATE_INTERVAL = "states.updateInterval";
-  public static final String KEY_IMAGE_SIZE = "image.size";
+  public static final String KEY_DISCOVERED_DEVICES = "plugin.discoveredDevices";
   private static final String[] SCOPES = new String[]{"streaming", "user-read-playback-state",
       "user-modify-playback-state", "user-library-modify", "user-library-read",
       "playlist-modify-private", "playlist-modify-public", "playlist-read-collaborative",
@@ -113,6 +114,20 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
   private final HashMap<String, String> base64Images = new HashMap<>();
 
   private ScheduledExecutorService scheduledExecutorService;
+
+  @Setting(
+      name = "Update Interval",
+      defaultValue = "12",
+      minValue = 12
+  )
+  private int updateInterval = 12;
+  @Setting(
+      name = "Image Size",
+      defaultValue = "128",
+      minValue = 128,
+      maxValue = 512
+  )
+  private int imageSize = 128;
 
   @State(
       defaultValue = "100",
@@ -230,6 +245,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
   )
   private String currentActiveDevice;
 
+  private Device lastActiveDevice = null;
+
   /**
    * Constructor
    */
@@ -237,10 +254,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
     super(true);
 
     if (this.loadProperties("plugin.config")) {
-      String clientId = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_CLIENT_ID);
-      String clientSecret = this.getProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_CLIENT_SECRET);
-
-      this.spotifyAPI = new SpotifyApi.Builder().setClientId(clientId).setClientSecret(clientSecret)
+      this.spotifyAPI = new SpotifyApi.Builder().setClientId(BuildConfig.SPOTIFY_CLIENT_ID)
+          .setClientSecret(BuildConfig.SPOTIFY_CLIENT_SECRET)
           .setRedirectUri(URI.create(TouchPortalSpotifyPlugin.REDIRECT_URI)).build();
 
       String oAuthAccessToken = this.getProperty(
@@ -250,13 +265,12 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
       if (oAuthAccessToken == null || oAuthAccessToken.isEmpty()) {
         this.startOAuthProcess();
       } else {
-        this.checkForUpdate();
         this.spotifyAPI.setAccessToken(oAuthAccessToken);
         this.spotifyAPI.setRefreshToken(oAuthRefreshToken);
         this.onSpotifyAPIReady();
       }
     } else {
-      System.out.println("Could not read plugin.config");
+      LOGGER.info("Could not read plugin.config");
     }
   }
 
@@ -289,7 +303,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
           (oAuth2Code, oAuth2Error) -> {
             if (oAuth2Error == null) {
               try {
-                System.out.println("Spotify OAuth Code: " + oAuth2Code);
+                LOGGER.info("OAuth Code: " + oAuth2Code);
                 AuthorizationCodeCredentials credentials = this.spotifyAPI.authorizationCode(
                     oAuth2Code).build().execute();
                 String oAuthAccessToken = credentials.getAccessToken();
@@ -306,7 +320,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
 
                 this.onSpotifyAPIReady();
               } catch (SpotifyWebApiException | IOException | ParseException exception) {
-                System.out.println("OAuth Process Failed: " + exception.getMessage());
+                LOGGER.info("OAuth Process Failed: " + exception.getMessage());
               }
             }
           });
@@ -332,13 +346,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
   }
 
   private void updateStatesAndChoices() {
-    System.out.println("Update States And Choices : NOW");
-    long nextSchedule = 30;
-    try {
-      nextSchedule = Long.parseLong(
-          this.getProperty(TouchPortalSpotifyPlugin.KEY_STATES_UPDATE_INTERVAL));
-    } catch (NumberFormatException ignored) {
-    }
+    LOGGER.info("Update States And Choices : NOW");
+    long nextSchedule = this.updateInterval;
     try {
       CurrentlyPlayingContext playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback()
           .build().execute();
@@ -346,6 +355,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
       if (playbackInfo == null || playbackInfo.getDevice() == null) {
         nextSchedule = 60;
       } else {
+        this.lastActiveDevice = playbackInfo.getDevice();
         currentActiveDevice = playbackInfo.getDevice().getName();
         this.updateStates(playbackInfo);
         this.updateChoices();
@@ -362,9 +372,20 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
     }
   }
 
+  private static final int MAX_UPDATE_CHOICES_SKIPS = 4;
+  private int updateChoicesSkipped = MAX_UPDATE_CHOICES_SKIPS;
   private void updateChoices() {
-    this.updateAvailableDevices();
-    this.updateCurrentUserPlaylists();
+    if (this.updateChoicesSkipped >= MAX_UPDATE_CHOICES_SKIPS) {
+      LOGGER.info("Now");
+      this.updateAvailableDevices();
+      this.updateCurrentUserPlaylists();
+
+      this.updateChoicesSkipped = 0;
+    }
+    else {
+      LOGGER.info("Skip");
+      this.updateChoicesSkipped++;
+    }
   }
 
   private void updateStates(CurrentlyPlayingContext playbackInfo) {
@@ -541,21 +562,19 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
     } else {
       ByteArrayOutputStream byteArrayOutputStream = null;
       try {
-        int imageSize = Integer.parseInt(
-            this.getProperty(TouchPortalSpotifyPlugin.KEY_IMAGE_SIZE, "256"));
         String finalImageUrl = imageUrl;
         if (!imageUrl.contains("==/default") && imageUrl.contains("/default")) {
           finalImageUrl = imageUrl.replace("/default", "");
         }
         BufferedImage bufferedImage = ImageIO.read(new URL(finalImageUrl));
-        BufferedImage resizedBufferedImage = Scalr.resize(bufferedImage, imageSize);
+        BufferedImage resizedBufferedImage = Scalr.resize(bufferedImage, this.imageSize);
 
         ImageIO.write(resizedBufferedImage, "jpg",
             byteArrayOutputStream = new ByteArrayOutputStream());
         base64 = Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
         this.base64Images.put(imageUrl, base64);
       } catch (Exception exception) {
-        System.out.println(exception.getMessage() + " for Image URL: " + imageUrl);
+        LOGGER.info(exception.getMessage() + " for Image URL: " + imageUrl);
       } finally {
         if (byteArrayOutputStream != null) {
           try {
@@ -666,7 +685,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
   private ArrayList<StoredDevice> getStoredDevices() {
     ArrayList<StoredDevice> storedDevices = new ArrayList<>();
 
-    String rawDiscoveredDevices = this.getProperty("plugin.discoveredDevices");
+    String rawDiscoveredDevices = this.getProperty(KEY_DISCOVERED_DEVICES);
     if (rawDiscoveredDevices != null && !rawDiscoveredDevices.isEmpty()) {
       for (String rawDevice : rawDiscoveredDevices.split("::")) {
         StoredDevice storedDevice = new StoredDevice(rawDevice);
@@ -686,7 +705,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
     }
     String rawDiscoveredDevices = String.join("::",
         alreadyStoredDevices.stream().map(StoredDevice::toString).toArray(String[]::new));
-    this.setProperty("plugin.discoveredDevices", rawDiscoveredDevices);
+    this.setProperty(KEY_DISCOVERED_DEVICES, rawDiscoveredDevices);
     this.storeProperties();
   }
 
@@ -744,6 +763,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
             } else {
               this.playerStartResume();
             }
+          } else {
+            this.playerStartResume();
           }
         } catch (IOException | ParseException ignored) {
         } catch (SpotifyWebApiException spotifyWebApiException) {
@@ -770,14 +791,12 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
   )
   private void playerStartPlayingThroughDevice(@Data(label = "Device") String[] devices) {
     try {
-      for (StoredDevice storedDevice : this.getStoredDevices()) {
-        if (devices[0].equals(storedDevice.name)) {
-          this.spotifyAPI.startResumeUsersPlayback().device_id(storedDevice.id).build().execute();
-          System.out.println("Spotify: Playback Start through Device: " + devices[0]);
-          Thread.sleep(250);
-          this.updateStates();
-          break;
-        }
+      Optional<StoredDevice> storedDevice = this.getStoredDevices().stream().filter(item -> devices[0].equals(item.name)).findFirst();
+      if (storedDevice.isPresent()) {
+        this.spotifyAPI.startResumeUsersPlayback().device_id(storedDevice.get().id).build().execute();
+        LOGGER.info("Playback Start through Device: " + devices[0]);
+        Thread.sleep(250);
+        this.updateStates();
       }
     } catch (IOException | ParseException | InterruptedException ignored) {
     } catch (SpotifyWebApiException spotifyWebApiException) {
@@ -799,7 +818,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
           JsonArray transferDevices = new JsonArray();
           transferDevices.add(storedDevice.id);
           this.spotifyAPI.transferUsersPlayback(transferDevices).play(true).build().execute();
-          System.out.println("Spotify: Transfer Playback to Device: " + devices[0]);
+          LOGGER.info("Transfer Playback to Device: " + devices[0]);
           Thread.sleep(250);
           this.updateStates();
           break;
@@ -815,16 +834,16 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
   //    @Action(name = "Playback Start/Resume", prefix = "Spotify Player", description = "Playback Start/Resume", categoryId = "BaseCategory")
   private void playerStartResume() {
     try {
-      Device activeDevice = this.getActiveDevice();
-      if (activeDevice != null) {
-        this.spotifyAPI.startResumeUsersPlayback().device_id(activeDevice.getId()).build()
+      Device device = this.getActiveDeviceOrFirstOrNull();
+      if (device != null) {
+        this.spotifyAPI.startResumeUsersPlayback().device_id(device.getId()).build()
             .execute();
-        System.out.println("Spotify: Playback Start/Resume");
+        LOGGER.info("Playback Start/Resume");
         this.sendStateUpdate(
             TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaybackStatus.ID,
             TouchPortalSpotifyPlugin.STATE_VALUE_PLAYING);
       } else {
-        System.out.println("Spotify: No Active Device Found");
+        LOGGER.info("No Device Found");
       }
     } catch (IOException | ParseException ignored) {
     } catch (SpotifyWebApiException spotifyWebApiException) {
@@ -835,15 +854,14 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
   //    @Action(name = "Playback Pause", prefix = "Spotify Player", description = "Playback Pause", categoryId = "BaseCategory")
   private void playerPause() {
     try {
-      Device activeDevice = this.getActiveDevice();
-      if (activeDevice != null) {
-        this.spotifyAPI.pauseUsersPlayback().device_id(activeDevice.getId()).build().execute();
-        System.out.println("Spotify: Playback Pause");
+      if (this.lastActiveDevice != null) {
+        this.spotifyAPI.pauseUsersPlayback().device_id(this.lastActiveDevice.getId()).build().execute();
+        LOGGER.info("Playback Pause");
         this.sendStateUpdate(
             TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentPlaybackStatus.ID,
             TouchPortalSpotifyPlugin.STATE_VALUE_PAUSED);
       } else {
-        System.out.println("Spotify: No Active Device Found");
+        LOGGER.info("No Device Found");
       }
     } catch (IOException | ParseException ignored) {
     } catch (SpotifyWebApiException spotifyWebApiException) {
@@ -859,10 +877,14 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
   )
   private void playerNextTrack() {
     try {
-      this.spotifyAPI.skipUsersPlaybackToNextTrack().build().execute();
-      System.out.println("Spotify: Playback Next Track");
-      Thread.sleep(250);
-      this.updateStates();
+      if (this.lastActiveDevice != null) {
+        LOGGER.info("Playback Next Track");
+        this.spotifyAPI.skipUsersPlaybackToNextTrack().device_id(this.lastActiveDevice.getId()).build().execute();
+        Thread.sleep(250);
+        this.updateStates();
+      } else {
+        LOGGER.info("No Device Found");
+      }
     } catch (IOException | ParseException | InterruptedException ignored) {
     } catch (SpotifyWebApiException spotifyWebApiException) {
       this.handleSpotifyWebApiException(spotifyWebApiException, this::playerNextTrack);
@@ -877,10 +899,14 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
   )
   private void playerPreviousTrack() {
     try {
-      this.spotifyAPI.skipUsersPlaybackToPreviousTrack().build().execute();
-      System.out.println("Spotify: Playback Previous Track");
-      Thread.sleep(250);
-      this.updateStates();
+      if (this.lastActiveDevice != null) {
+        LOGGER.info("Playback Previous Track");
+        this.spotifyAPI.skipUsersPlaybackToPreviousTrack().build().execute();
+        Thread.sleep(250);
+        this.updateStates();
+      } else {
+        LOGGER.info("No Device Found");
+      }
     } catch (IOException | ParseException | InterruptedException ignored) {
     } catch (SpotifyWebApiException spotifyWebApiException) {
       this.handleSpotifyWebApiException(spotifyWebApiException, this::playerPreviousTrack);
@@ -900,12 +926,11 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
           defaultValue = "100"
       ) int volume) {
     try {
-      Device activeDevice = this.getActiveDevice();
-      if (activeDevice != null) {
+      if (this.lastActiveDevice != null) {
         volume = Math.max(Math.min(volume, 100), 0);
-        this.spotifyAPI.setVolumeForUsersPlayback(volume).device_id(activeDevice.getId()).build()
+        LOGGER.info("Playback Volume Set: " + volume);
+        this.spotifyAPI.setVolumeForUsersPlayback(volume).device_id(this.lastActiveDevice.getId()).build()
             .execute();
-        System.out.println("Spotify: Playback Volume Set: " + volume);
         if (volume > 0) {
           this.lastKnownPositiveVolume = volume;
         }
@@ -916,7 +941,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
             volume > 0 ? TouchPortalSpotifyPlugin.STATE_VALUE_UNMUTED
                 : TouchPortalSpotifyPlugin.STATE_VALUE_MUTED);
       } else {
-        System.out.println("Spotify: No Active Device Found");
+        LOGGER.info("No Device Found");
       }
     } catch (IOException | ParseException ignored) {
     } catch (SpotifyWebApiException spotifyWebApiException) {
@@ -938,10 +963,12 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
       defaultValue = "10"
   ) int volumeStep) {
     try {
-      CurrentlyPlayingContext playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback()
-          .build().execute();
-      if (playbackInfo != null) {
-        this.playerSetVolume(playbackInfo.getDevice().getVolume_percent() + volumeStep);
+      Device device = this.getActiveDeviceOrFirstOrNull();
+      if (device != null) {
+        LOGGER.info("Playback Volume Up by: " + volumeStep);
+        this.playerSetVolume(device.getVolume_percent() + volumeStep);
+      } else {
+        LOGGER.info("No Device Found");
       }
     } catch (IOException | ParseException ignored) {
     } catch (SpotifyWebApiException spotifyWebApiException) {
@@ -962,10 +989,12 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
       defaultValue = "10"
   ) int volumeStep) {
     try {
-      CurrentlyPlayingContext playbackInfo = this.spotifyAPI.getInformationAboutUsersCurrentPlayback()
-          .build().execute();
-      if (playbackInfo != null) {
-        this.playerSetVolume(playbackInfo.getDevice().getVolume_percent() - volumeStep);
+      Device device = this.getActiveDeviceOrFirstOrNull();
+      if (device != null) {
+        LOGGER.info("Playback Volume Down by: " + volumeStep);
+        this.playerSetVolume(device.getVolume_percent() - volumeStep);
+      } else {
+        LOGGER.info("No Device Found");
       }
     } catch (IOException | ParseException ignored) {
     } catch (SpotifyWebApiException spotifyWebApiException) {
@@ -1073,7 +1102,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
             }
             break;
         }
-        System.out.println("Spotify: Track " + likeDislikeActions[0]);
+        LOGGER.info("Track " + likeDislikeActions[0]);
       }
     } catch (ParseException | IOException ignored) {
     } catch (SpotifyWebApiException spotifyWebApiException) {
@@ -1093,9 +1122,14 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
     PlaylistSimplified selectedPlaylistSimplified = this.getUserPlaylistFromName(playlistNames[0]);
     if (selectedPlaylistSimplified != null) {
       try {
-        this.spotifyAPI.startResumeUsersPlayback().context_uri(selectedPlaylistSimplified.getUri())
-            .build().execute();
-        System.out.println("Spotify: Playlist Start: " + playlistNames[0]);
+        Device device = this.getActiveDeviceOrFirstOrNull();
+        if (device != null) {
+          LOGGER.info("Playlist Start: " + playlistNames[0]);
+          this.spotifyAPI.startResumeUsersPlayback().context_uri(selectedPlaylistSimplified.getUri())
+              .build().execute();
+        } else {
+          LOGGER.info("No Device Found");
+        }
       } catch (IOException | ParseException ignored) {
       } catch (SpotifyWebApiException spotifyWebApiException) {
         this.handleSpotifyWebApiException(spotifyWebApiException,
@@ -1112,21 +1146,27 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
   )
   private void likedSongsStart() {
     try {
-      ArrayList<SavedTrack> savedTracks = new ArrayList<>();
-      Paging<SavedTrack> pagedUserSavedTracks = this.spotifyAPI.getUsersSavedTracks().limit(50)
-          .build().execute();
-      Collections.addAll(savedTracks, pagedUserSavedTracks.getItems());
-      while (pagedUserSavedTracks.getNext() != null) {
-        pagedUserSavedTracks = this.spotifyAPI.getUsersSavedTracks().limit(50)
-            .offset(pagedUserSavedTracks.getOffset()).build().execute();
-      }
+      Device device = this.getActiveDeviceOrFirstOrNull();
+      if (device != null) {
+        LOGGER.info("Liked Songs Start");
+        ArrayList<SavedTrack> savedTracks = new ArrayList<>();
+        Paging<SavedTrack> pagedUserSavedTracks = this.spotifyAPI.getUsersSavedTracks().limit(50)
+            .build().execute();
+        Collections.addAll(savedTracks, pagedUserSavedTracks.getItems());
+        while (pagedUserSavedTracks.getNext() != null) {
+          pagedUserSavedTracks = this.spotifyAPI.getUsersSavedTracks().limit(50)
+              .offset(pagedUserSavedTracks.getOffset()).build().execute();
+        }
 
-      JsonArray savedTracksUris = new JsonArray();
-      for (SavedTrack savedTrack : savedTracks) {
-        savedTracksUris.add(savedTrack.getTrack().getUri());
-      }
+        JsonArray savedTracksUris = new JsonArray();
+        for (SavedTrack savedTrack : savedTracks) {
+          savedTracksUris.add(savedTrack.getTrack().getUri());
+        }
 
-      this.spotifyAPI.startResumeUsersPlayback().uris(savedTracksUris).build().execute();
+        this.spotifyAPI.startResumeUsersPlayback().uris(savedTracksUris).device_id(device.getId()).build().execute();
+      } else {
+        LOGGER.info("No Device Found");
+      }
     } catch (IOException | ParseException ignored) {
     } catch (SpotifyWebApiException spotifyWebApiException) {
       this.handleSpotifyWebApiException(spotifyWebApiException, this::likedSongsStart);
@@ -1170,7 +1210,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
           }
           break;
       }
-      System.out.println("Spotify: Player Shuffle Mode: " + shuffleMode);
+      LOGGER.info("Player Shuffle Mode: " + shuffleMode);
       if (shuffleMode != null) {
         this.sendStateUpdate(
             TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentShuffleMode.ID,
@@ -1209,19 +1249,19 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
         case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_TRACK:
           newRepeatMode = "track";
           this.spotifyAPI.setRepeatModeOnUsersPlayback(newRepeatMode).build().execute();
-          System.out.println("Spotify: Player Repeat Mode: " + newRepeatMode);
+          LOGGER.info("Player Repeat Mode: " + newRepeatMode);
           break;
 
         case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CONTEXT:
           newRepeatMode = "context";
           this.spotifyAPI.setRepeatModeOnUsersPlayback(newRepeatMode).build().execute();
-          System.out.println("Spotify: Player Repeat Mode: " + newRepeatMode);
+          LOGGER.info("Player Repeat Mode: " + newRepeatMode);
           break;
 
         case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_OFF:
           newRepeatMode = "off";
           this.spotifyAPI.setRepeatModeOnUsersPlayback(newRepeatMode).build().execute();
-          System.out.println("Spotify: Player Repeat Mode: " + newRepeatMode);
+          LOGGER.info("Player Repeat Mode: " + newRepeatMode);
           break;
 
         case TouchPortalSpotifyPlugin.ACTION_DATA_CHOICE_REPEAT_CYCLE:
@@ -1241,7 +1281,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
                 break;
             }
             this.spotifyAPI.setRepeatModeOnUsersPlayback(newRepeatMode).build().execute();
-            System.out.println("Spotify: Player Repeat Mode: " + newRepeatMode);
+            LOGGER.info("Player Repeat Mode: " + newRepeatMode);
           }
           break;
 
@@ -1253,7 +1293,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
               newRepeatMode = "track";
             }
             this.spotifyAPI.setRepeatModeOnUsersPlayback(newRepeatMode).build().execute();
-            System.out.println("Spotify: Player Repeat Mode: " + newRepeatMode);
+            LOGGER.info("Player Repeat Mode: " + newRepeatMode);
           }
           break;
       }
@@ -1311,9 +1351,9 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
           if (!alreadyPresent) {
             this.spotifyAPI.addItemsToPlaylist(selectedPlaylistSimplified.getId(),
                 new String[]{currentTrack.getUri()}).build().execute();
-            System.out.println("Spotify: Playlist Add Track: " + currentTrack.getName());
+            LOGGER.info("Playlist Add Track: " + currentTrack.getName());
           } else {
-            System.out.println("Spotify: Playlist Add Track already present");
+            LOGGER.info("Playlist Add Track already present");
           }
         }
       }
@@ -1357,11 +1397,11 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
         tracksToRemove.add(trackToRemove);
         this.spotifyAPI.removeItemsFromPlaylist(currentPlaylist.getId(), tracksToRemove).build()
             .execute();
-        System.out.println(
+        LOGGER.info(
             "Spotify: Remove Track: [" + currentTrack.getName() + "] from Current Playlist ["
                 + currentPlaylist.getName() + "]");
       } else {
-        System.out.println(
+        LOGGER.info(
             "Spotify: Remove Current Track from Current Playlist: No Track or Playlist");
       }
     } catch (IOException | ParseException ignored) {
@@ -1380,14 +1420,18 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
   )
   private void startResourceByID(@Data(label = "Resource URI") String resourceUri) {
     try {
-      if (resourceUri.startsWith("spotify:track:")) {
-        JsonArray uris = new JsonArray();
-        uris.add(resourceUri);
-        this.spotifyAPI.startResumeUsersPlayback().uris(uris).build().execute();
+      if (this.lastActiveDevice != null) {
+        LOGGER.info("Start Resource by ID: " + resourceUri);
+        if (resourceUri.startsWith("spotify:track:")) {
+          JsonArray uris = new JsonArray();
+          uris.add(resourceUri);
+          this.spotifyAPI.startResumeUsersPlayback().uris(uris).device_id(this.lastActiveDevice.getId()).build().execute();
+        } else {
+          this.spotifyAPI.startResumeUsersPlayback().context_uri(resourceUri).device_id(this.lastActiveDevice.getId()).build().execute();
+        }
       } else {
-        this.spotifyAPI.startResumeUsersPlayback().context_uri(resourceUri).build().execute();
+        LOGGER.info("No Device Found");
       }
-      System.out.println("Spotify: Start Resource by ID: " + resourceUri);
     } catch (IOException | ParseException ignored) {
     } catch (SpotifyWebApiException spotifyWebApiException) {
       this.handleSpotifyWebApiException(spotifyWebApiException,
@@ -1397,12 +1441,12 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
 
   private synchronized void handleSpotifyWebApiException(
       SpotifyWebApiException spotifyWebApiException, Runnable runnable) {
-    System.out.println(
+    LOGGER.info(
         "SpotifyWebApiException: " + spotifyWebApiException.getClass().getSimpleName() + " - "
             + spotifyWebApiException.getMessage());
     if (spotifyWebApiException instanceof UnauthorizedException) {
       try {
-        System.out.println("Spotify RefreshToken: " + this.spotifyAPI.getRefreshToken());
+        LOGGER.info("RefreshToken: " + this.spotifyAPI.getRefreshToken());
         AuthorizationCodeCredentials credentials = this.spotifyAPI.authorizationCodeRefresh()
             .build().execute();
 
@@ -1419,20 +1463,20 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
         this.storeProperties();
 
         runnable.run();
-      } catch (IOException | ParseException | SpotifyWebApiException exception) {
-        if (exception instanceof TooManyRequestsException) {
-          System.out.println(exception.getMessage());
+      } catch (IOException | ParseException | SpotifyWebApiException refreshException) {
+        if (refreshException instanceof TooManyRequestsException) {
+          LOGGER.info(refreshException.getMessage());
         } else {
           this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_ACCESS_TOKEN);
           this.removeProperty(TouchPortalSpotifyPlugin.KEY_SPOTIFY_OAUTH_REFRESH_TOKEN);
           this.storeProperties();
-          exception.printStackTrace();
+          refreshException.printStackTrace();
           this.startOAuthProcess();
         }
       }
     } else if (spotifyWebApiException instanceof TooManyRequestsException) {
       TooManyRequestsException tooManyRequestsException = (TooManyRequestsException) spotifyWebApiException;
-      System.out.println(tooManyRequestsException.getMessage() + ": Retry After "
+      LOGGER.info(tooManyRequestsException.getMessage() + ": Retry After "
           + tooManyRequestsException.getRetryAfter());
       this.startUpdatingStatesAndChoices(tooManyRequestsException.getRetryAfter());
     }
@@ -1449,13 +1493,22 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
     return playlistSimplified;
   }
 
-  private Device getActiveDevice() throws ParseException, SpotifyWebApiException, IOException {
+  private Device getActiveDeviceOrFirstOrNull() throws ParseException, SpotifyWebApiException, IOException {
     Device activeDevice = null;
-    Optional<Device> optionalActiveDevice = Arrays.stream(
-            this.spotifyAPI.getUsersAvailableDevices().build().execute()).filter(Device::getIs_active)
-        .findFirst();
-    if (optionalActiveDevice.isPresent()) {
-      activeDevice = optionalActiveDevice.get();
+
+    Device[] availableDevices = this.spotifyAPI.getUsersAvailableDevices().build().execute();
+    Device activeDeviceOrFirstOrNull = Arrays.stream(availableDevices)
+        .filter(Device::getIs_active)
+        .peek(device -> {
+          this.lastActiveDevice = device;
+          this.sendStateUpdate(
+              TouchPortalSpotifyPluginConstants.BaseCategory.States.CurrentActiveDevice.ID,
+              device.getName());
+        })
+        .findFirst()
+        .orElseGet(() -> availableDevices.length > 0 ? availableDevices[0] : null);
+    if (activeDeviceOrFirstOrNull != null) {
+      activeDevice = activeDeviceOrFirstOrNull;
     }
     return activeDevice;
   }
@@ -1472,6 +1525,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
 
   @Override
   public void onInfo(TPInfoMessage tpInfoMessage) {
+    this.checkForUpdate();
   }
 
   @Override

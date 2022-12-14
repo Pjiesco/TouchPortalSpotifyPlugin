@@ -1,11 +1,11 @@
 plugins {
     id 'java'
-    id 'com.github.gmazzo.buildconfig' version '3.0.0'
+    id 'com.github.gmazzo.buildconfig' version '3.1.0'
     id 'com.christophecvb.touchportal.plugin-packager' version "$tppSDKVersion"
 }
 
 def versionMajor = 3
-def versionMinor = 0
+def versionMinor = 1
 def versionPatch = 0
 
 def mainClassSimpleName = 'TouchPortalSpotifyPlugin'
@@ -21,12 +21,15 @@ buildConfig {
     buildConfigField 'String', 'NAME', "\"${project.name}\""
     buildConfigField 'String', 'VERSION_NAME', "\"${version}\""
     buildConfigField 'long', 'VERSION_CODE', (versionMajor * 1000 + versionMinor * 100 + versionPatch) + ''
+
+    buildConfigField 'String', 'SPOTIFY_CLIENT_ID', '"9119a54ec10541d7a47c29be6dbd1be8"'
+    buildConfigField 'String', 'SPOTIFY_CLIENT_SECRET', '"8535126c2fe54dbda894b0eab9a2312e"'
 }
 
 dependencies {
     implementation 'com.christophecvb.touchportal:plugin-sdk:' + tppSDKVersion
 
-    implementation 'se.michaelthelin.spotify:spotify-web-api-java:6.3.0'
+    implementation 'se.michaelthelin.spotify:spotify-web-api-java:6.5.4'
     implementation 'org.imgscalr:imgscalr-lib:4.2'
 
     annotationProcessor 'com.christophecvb.touchportal:plugin-sdk-annotations-processor:' + tppSDKVersion
