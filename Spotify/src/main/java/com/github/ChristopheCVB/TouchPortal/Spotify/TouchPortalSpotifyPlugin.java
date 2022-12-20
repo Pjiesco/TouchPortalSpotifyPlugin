@@ -5,17 +5,20 @@ import com.christophecvb.touchportal.annotations.Action;
 import com.christophecvb.touchportal.annotations.Category;
 import com.christophecvb.touchportal.annotations.Data;
 import com.christophecvb.touchportal.annotations.Event;
+import com.christophecvb.touchportal.annotations.ParentCategory;
 import com.christophecvb.touchportal.annotations.Plugin;
 import com.christophecvb.touchportal.annotations.Setting;
 import com.christophecvb.touchportal.annotations.State;
 import com.christophecvb.touchportal.helpers.PluginHelper;
 import com.christophecvb.touchportal.model.TPBroadcastMessage;
 import com.christophecvb.touchportal.model.TPInfoMessage;
-import com.christophecvb.touchportal.model.TPListChangeMessage;
+import com.christophecvb.touchportal.model.TPListChangedMessage;
 import com.christophecvb.touchportal.model.TPNotificationOption;
 import com.christophecvb.touchportal.model.TPNotificationOptionClickedMessage;
 import com.christophecvb.touchportal.model.TPSettingsMessage;
 import com.christophecvb.touchportal.oauth2.OAuth2LocalServerReceiver;
+import com.github.ChristopheCVB.TouchPortal.Spotify.TouchPortalSpotifyPluginConstants.BaseCategory.Actions;
+import com.github.ChristopheCVB.TouchPortal.Spotify.action.AddToQueue;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.wrapper.spotify.SpotifyApi;
@@ -57,6 +60,8 @@ import org.apache.hc.core5.http.ParseException;
 import org.imgscalr.Scalr;
 
 @Plugin(
+    name = "Spotify",
+    parentCategory = ParentCategory.AUDIO,
     version = BuildConfig.VERSION_CODE,
     colorLight = "#23CF5F",
     colorDark = "#000000"
@@ -252,6 +257,8 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
    */
   private TouchPortalSpotifyPlugin() {
     super(true);
+
+    this.registerInvokable(Actions.AddToQueue.ID, AddToQueue.class);
 
     if (this.loadProperties("plugin.config")) {
       this.spotifyAPI = new SpotifyApi.Builder().setClientId(BuildConfig.SPOTIFY_CLIENT_ID)
@@ -1439,7 +1446,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
     }
   }
 
-  private synchronized void handleSpotifyWebApiException(
+  public synchronized void handleSpotifyWebApiException(
       SpotifyWebApiException spotifyWebApiException, Runnable runnable) {
     LOGGER.info(
         "SpotifyWebApiException: " + spotifyWebApiException.getClass().getSimpleName() + " - "
@@ -1478,7 +1485,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
       TooManyRequestsException tooManyRequestsException = (TooManyRequestsException) spotifyWebApiException;
       LOGGER.info(tooManyRequestsException.getMessage() + ": Retry After "
           + tooManyRequestsException.getRetryAfter());
-      this.startUpdatingStatesAndChoices(tooManyRequestsException.getRetryAfter());
+      this.startUpdatingStatesAndChoices(tooManyRequestsException.getRetryAfter() + 1);
     }
   }
 
@@ -1529,7 +1536,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
   }
 
   @Override
-  public void onListChanged(TPListChangeMessage tpListChangeMessage) {
+  public void onListChanged(TPListChangedMessage tpListChangeMessage) {
   }
 
   @Override
@@ -1559,6 +1566,14 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
         }
         break;
     }
+  }
+
+  public SpotifyApi getSpotifyAPI() {
+    return this.spotifyAPI;
+  }
+
+  public Device getLastActiveDevice() {
+    return this.lastActiveDevice;
   }
 
   private enum Categories {

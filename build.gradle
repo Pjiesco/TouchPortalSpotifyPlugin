@@ -7,4 +7,4 @@ allprojects {
     }
 }
 
-ext.tppSDKVersion = '8.3.0'
+ext.tppSDKVersion = '9.0.0+'
