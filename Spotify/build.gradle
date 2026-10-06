@@ -4,8 +4,8 @@ plugins {
     id 'com.christophecvb.touchportal.plugin-packager' version "$tppSDKVersion"
 }
 
-def versionMajor = 3
-def versionMinor = 2
+def versionMajor = 4
+def versionMinor = 0
 def versionPatch = 0
 
 def mainClassSimpleName = 'TouchPortalSpotifyPlugin'
@@ -29,10 +29,10 @@ buildConfig {
 dependencies {
     implementation 'com.christophecvb.touchportal:plugin-sdk:' + tppSDKVersion
 
-    implementation 'se.michaelthelin.spotify:spotify-web-api-java:6.5.4'
+    implementation 'se.michaelthelin.spotify:spotify-web-api-java:10.0.0'
     implementation 'org.imgscalr:imgscalr-lib:4.2'
 
-    annotationProcessor 'com.christophecvb.touchportal:plugin-sdk-annotations-processor:' + tppSDKVersion
+    implementation("com.pjiesco.touchportal:touchportal-plugin-utils:0.1.0")
 
-    testImplementation group: 'junit', name: 'junit', version: '4.12'
+    annotationProcessor 'com.christophecvb.touchportal:plugin-sdk-annotations-processor:' + tppSDKVersion
 }

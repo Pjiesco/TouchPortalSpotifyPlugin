@@ -1,19 +1,31 @@
-# [Touch Portal](https://www.touch-portal.com/) Spotify Plugin
+# Touch Portal Spotify Plugin
 
-This Project is a Touch Portal Plugin for Spotify
+A [Touch Portal](https://www.touch-portal.com/) plugin for controlling and interacting with Spotify.
 
-It uses the [Touch Portal Plugin SDK](https://github.com/ChristopheCVB/TouchPortalPluginSDK)
+> **Project status**
+>
+> This repository is a maintained fork of the original
+> [TouchPortalSpotifyPlugin](https://github.com/ChristopheCVB/TouchPortalSpotifyPlugin)
+> created by [ChristopheCVB](https://github.com/ChristopheCVB).
+>
+> The original project is no longer actively maintained. This fork continues development, maintenance, bug fixes, and compatibility updates.
 
-## Releases
+The plugin is built using the
+[Touch Portal Plugin SDK](https://github.com/ChristopheCVB/TouchPortalPluginSDK).
 
-Latest version is 1.3.0
+## Installation
 
-Go to [releases](https://github.com/ChristopheCVB/TouchPortalSpotifyPlugin/releases)
+Make sure you have **Java 17 or newer** installed.
 
-## Download Plugin
+Download the latest release from the [Plugin Homepage](https://pjiesco.com/projects/touch-portal/plugins/spotify).
 
-Head to Plugin [Home Page](http://christophecvb.com/Touch%20Portal/Plugins/Spotify/)
+Download the `.tpp` plugin file from the latest release and import it into Touch Portal.
 
-## ROADMAP
+## Credits
 
-The roadmap can be found [here](https://github.com/ChristopheCVB/TouchPortalSpotifyPlugin/projects/1)
+This project was originally created by
+[ChristopheCVB](https://github.com/ChristopheCVB).
+
+A big thanks to Christophe for creating the original Touch Portal Spotify Plugin and making it available to the community.
+
+This fork continues the maintenance and development of the original project.

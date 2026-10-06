@@ -6,11 +6,11 @@ import com.christophecvb.touchportal.annotations.Action;
 import com.christophecvb.touchportal.annotations.Data;
 import com.christophecvb.touchportal.model.TPListChangedMessage;
 import com.github.ChristopheCVB.TouchPortal.Spotify.TouchPortalSpotifyPlugin;
-import com.wrapper.spotify.exceptions.SpotifyWebApiException;
-import com.wrapper.spotify.model_objects.miscellaneous.Device;
 import java.io.IOException;
 import java.util.logging.Logger;
 import org.apache.hc.core5.http.ParseException;
+import se.michaelthelin.spotify.exceptions.SpotifyWebApiException;
+import se.michaelthelin.spotify.model_objects.miscellaneous.Device;
 
 @Action(
     name = "Add Resource ID to Queue",
@@ -34,7 +34,7 @@ public class AddToQueue extends TPAction<TouchPortalSpotifyPlugin> {
     if (lastActiveDevice != null) {
       LOGGER.info("Add Resource ID to Queue: " + this.resourceUri);
       try {
-        this.touchPortalPlugin.getSpotifyAPI().addItemToUsersPlaybackQueue(this.resourceUri).device_id(lastActiveDevice.getId()).build().execute();
+        this.touchPortalPlugin.getSpotifyAPI().addItemToPlaybackQueue(this.resourceUri).device_id(lastActiveDevice.getId()).build().execute();
       }
       catch (IOException | ParseException ignored) {
       }

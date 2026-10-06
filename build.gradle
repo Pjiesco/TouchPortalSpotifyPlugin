@@ -1,8 +1,10 @@
 allprojects {
     repositories {
         maven {
-            url = "https://s01.oss.sonatype.org/content/repositories/snapshots"
+            name = "Pjiesco-Releases"
+            url = uri("https://repo.pjiesco.com/releases")
         }
+        mavenLocal() // TODO: remove this, in favor of proper repository
         mavenCentral()
     }
 }
