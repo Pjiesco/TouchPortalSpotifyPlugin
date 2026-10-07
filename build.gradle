@@ -4,7 +4,8 @@ allprojects {
             name = "Pjiesco-Releases"
             url = uri("https://repo.pjiesco.com/releases")
         }
-        mavenLocal() // TODO: remove this, in favor of proper repository
+        // TODO: remove this, in favor of proper repository
+        mavenLocal() // Use Maven local for TP SDK because snapshot repo is not available.
         mavenCentral()
     }
 }

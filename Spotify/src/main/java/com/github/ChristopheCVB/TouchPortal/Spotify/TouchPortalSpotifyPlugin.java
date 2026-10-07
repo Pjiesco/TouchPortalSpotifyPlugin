@@ -46,7 +46,7 @@ import se.michaelthelin.spotify.model_objects.specification.*;
 @Plugin(
     name = "Spotify",
     parentCategory = ParentCategory.AUDIO,
-    version = BuildConfig.VERSION_CODE, // TODO: Create long from semantic version
+    version = BuildConfig.VERSION_CODE,
     colorLight = "#23CF5F",
     colorDark = "#000000"
 )
