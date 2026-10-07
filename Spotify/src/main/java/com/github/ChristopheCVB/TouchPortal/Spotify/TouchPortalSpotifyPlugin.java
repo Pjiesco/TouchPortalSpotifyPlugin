@@ -65,7 +65,7 @@ public class TouchPortalSpotifyPlugin extends TouchPortalPlugin implements
   private static final String OPTION_NOTIFICATION_OPEN_WEBSITE_ID =
       TouchPortalSpotifyPluginConstants.ID + ".UpdateAvailable.OpenWebsite";
 
-  public static final String REDIRECT_URI = TouchPortalSpotifyPlugin.PLUGIN_HOME_URL + "oauth2";
+  public static final String REDIRECT_URI = "https://www.christophecvb.com/touch-portal/plugins/spotify/oauth2";
   public static final String KEY_SPOTIFY_OAUTH_ACCESS_TOKEN = "spotify.oauthaccestoken";
   public static final String KEY_SPOTIFY_OAUTH_REFRESH_TOKEN = "spotify.oauthrefreshtoken";
   public static final String KEY_DISCOVERED_DEVICES = "plugin.discoveredDevices";
